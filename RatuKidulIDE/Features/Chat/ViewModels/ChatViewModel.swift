@@ -22,18 +22,45 @@ struct ConversationTurn: Identifiable {
 @Observable
 final class ChatViewModel {
     // MARK: - Public Properties
-    var inputText: String = "" {
-        didSet {
-            Task { await updateContextUsage() }
-        }
-    }
+    
+    /// Input text - no longer triggers context recalculation on every keystroke
+    var inputText: String = ""
     var attachments: [Attachment] = []
     var selectedModels: [ModelConfig] = []
     var messageSets: [MessageSet] = []
     var isLoading: Bool = false
     
-    // Context management
-    var contextUsage: ContextUsage?
+    // Pagination state
+    var isLoadingMore: Bool = false
+    var hasMoreMessages: Bool = true
+    private let pageSize: Int = 3
+    private var totalMessageCount: Int = 0
+    
+    // Context management - now uses cached values
+    var contextUsage: ContextUsage? {
+        // Return cached usage with updated input estimate
+        guard let cached = cachedContextUsage else { return nil }
+        
+        // Quick estimate for current input without async call
+        let inputTokenEstimate = inputText.count / 4
+        let updatedTotal = cached.breakdown.systemPrompt +
+                          cached.breakdown.contextSummary +
+                          cached.breakdown.previousMessages +
+                          inputTokenEstimate +
+                          cached.breakdown.attachments
+        
+        return ContextUsage(
+            totalTokens: updatedTotal,
+            contextLimit: cached.contextLimit,
+            breakdown: TokenBreakdown(
+                systemPrompt: cached.breakdown.systemPrompt,
+                contextSummary: cached.breakdown.contextSummary,
+                previousMessages: cached.breakdown.previousMessages,
+                currentInput: inputTokenEstimate,
+                attachments: cached.breakdown.attachments
+            )
+        )
+    }
     var summaryState: SummaryState = .idle
     
     // Computed property for UI - conversation turns
@@ -52,6 +79,12 @@ final class ChatViewModel {
     
     private var chat: Chat?
     
+    /// Cached context usage - only recalculated on send or load
+    private var cachedContextUsage: ContextUsage?
+    
+    /// All message sets for context building (may be more than displayed)
+    private var allMessageSetsForContext: [MessageSet] = []
+    
     // MARK: - Initialization
     init(chatId: String, modelContext: ModelContext) {
         self.chatId = chatId
@@ -60,6 +93,7 @@ final class ChatViewModel {
     
     // MARK: - Public Methods
     
+    /// Load chat with pagination - only loads last N messages initially
     func loadChat() async {
         // Load the chat object
         let chatDescriptor = FetchDescriptor<Chat>(
@@ -67,18 +101,64 @@ final class ChatViewModel {
         )
         chat = try? modelContext.fetch(chatDescriptor).first
         
-        // Load message sets
-        let descriptor = FetchDescriptor<MessageSet>(
-            predicate: #Predicate { $0.chatId == chatId },
-            sortBy: [SortDescriptor(\.createdAt)]
+        // First, get total count of message sets
+        let countDescriptor = FetchDescriptor<MessageSet>(
+            predicate: #Predicate { $0.chatId == chatId }
         )
+        totalMessageCount = (try? modelContext.fetchCount(countDescriptor)) ?? 0
+        
+        // Load only the last N message sets for display
+        var descriptor = FetchDescriptor<MessageSet>(
+            predicate: #Predicate { $0.chatId == chatId },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = pageSize
         
         do {
-            messageSets = try modelContext.fetch(descriptor)
-            await updateContextUsage()
+            let recentMessages = try modelContext.fetch(descriptor)
+            // Reverse to get chronological order
+            messageSets = recentMessages.reversed()
+            hasMoreMessages = totalMessageCount > messageSets.count
+            
+            // Load all messages for context building (but not for display)
+            await loadAllMessagesForContext()
+            
+            // Calculate context usage once
+            await recalculateContextUsage()
         } catch {
             print("Error loading chat: \(error)")
         }
+    }
+    
+    /// Load more older messages when user scrolls up
+    func loadMoreMessages() async {
+        guard hasMoreMessages, !isLoadingMore else { return }
+        
+        isLoadingMore = true
+        
+        // Get the oldest currently loaded message's date
+        guard let oldestDate = messageSets.first?.createdAt else {
+            isLoadingMore = false
+            return
+        }
+        
+        // Fetch older messages
+        var descriptor = FetchDescriptor<MessageSet>(
+            predicate: #Predicate { $0.chatId == chatId && $0.createdAt < oldestDate },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = pageSize
+        
+        do {
+            let olderMessages = try modelContext.fetch(descriptor)
+            // Prepend older messages (reversed to get chronological order)
+            messageSets = olderMessages.reversed() + messageSets
+            hasMoreMessages = messageSets.count < totalMessageCount
+        } catch {
+            print("Error loading more messages: \(error)")
+        }
+        
+        isLoadingMore = false
     }
     
     func sendMessage() async {
@@ -91,6 +171,9 @@ final class ChatViewModel {
         isLoading = true
         let userMessage = inputText
         inputText = ""
+        
+        // Recalculate context before sending
+        await recalculateContextUsage()
         
         // 1. Check if we need to summarize first
         await checkAndSummarizeIfNeeded()
@@ -136,11 +219,17 @@ final class ChatViewModel {
         
         try? modelContext.save()
         isLoading = false
-        await loadChat()
+        
+        // Update counts and reload
+        totalMessageCount += 1
+        messageSets.append(messageSet)
+        allMessageSetsForContext.append(messageSet)
+        
+        // Note: Context is recalculated in onComplete callback after AI response finishes
     }
     
-    /// Update context usage estimate based on current state
-    func updateContextUsage() async {
+    /// Force recalculate context usage (called on send, load, model change)
+    func recalculateContextUsage() async {
         var modelConfig = selectedModels.first
         if modelConfig == nil {
             modelConfig = await getDefaultModel()
@@ -148,9 +237,10 @@ final class ChatViewModel {
         guard let config = modelConfig else { return }
         guard let chatObj = chat else { return }
         
-        contextUsage = await contextBuilder.estimateContextUsage(
+        // Use all messages for context calculation, not just displayed ones
+        cachedContextUsage = await contextBuilder.estimateContextUsage(
             chat: chatObj,
-            messageSets: messageSets,
+            messageSets: allMessageSetsForContext,
             currentInput: inputText,
             attachments: attachments,
             modelConfig: config
@@ -159,8 +249,23 @@ final class ChatViewModel {
     
     // MARK: - Private Methods
     
+    /// Load all message sets for context building (separate from pagination display)
+    private func loadAllMessagesForContext() async {
+        let descriptor = FetchDescriptor<MessageSet>(
+            predicate: #Predicate { $0.chatId == chatId },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        
+        do {
+            allMessageSetsForContext = try modelContext.fetch(descriptor)
+        } catch {
+            print("Error loading all messages for context: \(error)")
+            allMessageSetsForContext = messageSets
+        }
+    }
+    
     private func checkAndSummarizeIfNeeded() async {
-        guard let usage = contextUsage,
+        guard let usage = cachedContextUsage,
               let modelConfig = selectedModels.first,
               let chat = chat else { return }
         
@@ -173,22 +278,22 @@ final class ChatViewModel {
         do {
             // Create summary
             let result = try await summaryService.createSummary(
-                messageSets: messageSets,
+                messageSets: allMessageSetsForContext,
                 previousSummary: chat.contextSummary,
                 modelConfig: modelConfig,
                 keychain: keychain
             )
             
             // Get messages to exclude
-            let excludeIds = await summaryService.getMessagesToExclude(messageSets: messageSets)
+            let excludeIds = await summaryService.getMessagesToExclude(messageSets: allMessageSetsForContext)
             
             // Apply summary to chat
             chat.applySummary(result, excludeMessageIds: excludeIds)
             
             // Calculate tokens saved
             let oldTokens = usage.totalTokens
-            await updateContextUsage()
-            let newTokens = contextUsage?.totalTokens ?? oldTokens
+            await recalculateContextUsage()
+            let newTokens = cachedContextUsage?.totalTokens ?? oldTokens
             let saved = max(0, oldTokens - newTokens)
             
             summaryState = .completed(tokensSaved: saved)
@@ -207,10 +312,10 @@ final class ChatViewModel {
     private func streamResponse(for message: Message, modelConfig: ModelConfig, userMessage: String) async {
         guard let chat = chat else { return }
         
-        // Build optimized context
+        // Build optimized context using all messages
         let builtContext = await contextBuilder.buildContext(
             chat: chat,
-            messageSets: messageSets,
+            messageSets: allMessageSetsForContext,
             currentInput: userMessage,
             attachments: attachments,
             modelConfig: modelConfig
@@ -236,16 +341,14 @@ final class ChatViewModel {
                         message.text = fullText
                         message.state = .complete
                         // Cache token count for this response
-                        Task {
-                            message.tokenCount = await self.tokenCounter.estimateTokens(fullText)
-                        }
+                        message.tokenCount = await self.tokenCounter.estimateTokens(fullText)
                         if let toolCalls = toolCalls {
                             message.toolCalls = try? JSONEncoder().encode(toolCalls)
                         }
                         try? self.modelContext.save()
                         
-                        // Update context usage after response
-                        await self.updateContextUsage()
+                        // Recalculate context after AI response completes
+                        await self.recalculateContextUsage()
                     }
                 },
                 onError: { error in
@@ -284,4 +387,3 @@ final class ChatViewModel {
         }
     }
 }
-

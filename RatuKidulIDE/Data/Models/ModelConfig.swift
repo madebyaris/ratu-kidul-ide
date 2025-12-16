@@ -14,12 +14,15 @@ final class ModelConfig: Identifiable {
     var newUntil: Date?
     var contextWindow: Int?
     
+    /// Custom base URL for OpenAI/Anthropic compatible providers
+    var customBaseURL: String?
+    
     /// Returns the context window, defaulting to 128000 if not set
     var effectiveContextWindow: Int {
         contextWindow ?? 128000
     }
     
-    init(id: String, displayName: String, modelId: String, author: Author = .system, systemPrompt: String = "", isDefault: Bool = false, contextWindow: Int = 128000) {
+    init(id: String, displayName: String, modelId: String, author: Author = .system, systemPrompt: String = "", isDefault: Bool = false, contextWindow: Int = 128000, customBaseURL: String? = nil) {
         self.id = id
         self.displayName = displayName
         self.modelId = modelId
@@ -27,6 +30,7 @@ final class ModelConfig: Identifiable {
         self.systemPrompt = systemPrompt
         self.isDefault = isDefault
         self.contextWindow = contextWindow
+        self.customBaseURL = customBaseURL
     }
     
     enum Author: String, Codable {

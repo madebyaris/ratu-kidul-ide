@@ -6,7 +6,15 @@ struct AIResponseView: View {
     let message: Message
     
     @State private var isHovering = false
+    @State private var isExpanded = true
     @Query private var modelConfigs: [ModelConfig]
+    
+    // Collapse threshold - responses longer than this can be collapsed
+    private let collapseThreshold = 1000
+    
+    private var shouldShowCollapseButton: Bool {
+        message.text.count > collapseThreshold && message.state == .complete
+    }
     
     private var modelName: String {
         modelConfigs.first { $0.id == message.modelConfigId }?.displayName ?? message.modelConfigId
@@ -75,7 +83,32 @@ struct AIResponseView: View {
                         }
                         
                     case .complete:
-                        MarkdownText(message.text)
+                        VStack(alignment: .leading, spacing: 8) {
+                            if shouldShowCollapseButton && !isExpanded {
+                                // Show truncated content
+                                MarkdownText(String(message.text.prefix(collapseThreshold)) + "...")
+                            } else {
+                                MarkdownText(message.text)
+                            }
+                            
+                            // Collapse/Expand button for long responses
+                            if shouldShowCollapseButton {
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        isExpanded.toggle()
+                                    }
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                            .font(.caption2)
+                                        Text(isExpanded ? "Show less" : "Show more (\(message.text.count - collapseThreshold) more characters)")
+                                            .font(.caption)
+                                    }
+                                    .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                         
                     case .error:
                         VStack(alignment: .leading, spacing: 8) {
@@ -174,6 +207,8 @@ struct StreamingIndicator: View {
 struct MarkdownText: View {
     let text: String
     
+    @AppStorage("chatFontSize") private var chatFontSize: Double = 14
+    
     init(_ text: String) {
         self.text = text
     }
@@ -182,6 +217,7 @@ struct MarkdownText: View {
         // For now, simple text rendering
         // TODO: Add proper markdown rendering with code highlighting
         Text(text)
+            .font(.system(size: chatFontSize))
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -209,4 +245,3 @@ struct MarkdownText: View {
     .padding()
     .frame(width: 600)
 }
-

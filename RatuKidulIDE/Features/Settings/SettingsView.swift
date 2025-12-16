@@ -87,6 +87,11 @@ struct SettingsView: View {
 struct GeneralSettingsView: View {
     @AppStorage("appearance") private var appearance: String = "system"
     
+    // Font size settings
+    @AppStorage("editorFontSize") private var editorFontSize: Double = FontSettingsDefaults.editorFontSize
+    @AppStorage("chatFontSize") private var chatFontSize: Double = FontSettingsDefaults.chatFontSize
+    @AppStorage("systemFontSize") private var systemFontSize: Double = FontSettingsDefaults.systemFontSize
+    
     var body: some View {
         Form {
             Section {
@@ -100,9 +105,126 @@ struct GeneralSettingsView: View {
             }
             
             Section {
-                // Add more general settings here
+                // IDE Editor Font Size
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("IDE Editor")
+                        Spacer()
+                        Text("\(Int(editorFontSize)) pt")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Text("A")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                        
+                        Slider(
+                            value: $editorFontSize,
+                            in: FontSettingsDefaults.minFontSize...FontSettingsDefaults.maxFontSize,
+                            step: 1
+                        )
+                        
+                        Text("A")
+                            .font(.system(size: 18))
+                            .foregroundStyle(.secondary)
+                        
+                        Stepper("", value: $editorFontSize, in: FontSettingsDefaults.minFontSize...FontSettingsDefaults.maxFontSize)
+                            .labelsHidden()
+                    }
+                    
+                    Text("Font size for the code editor")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.vertical, 4)
+                
+                // Chat Font Size
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Chat & AI Responses")
+                        Spacer()
+                        Text("\(Int(chatFontSize)) pt")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Text("A")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                        
+                        Slider(
+                            value: $chatFontSize,
+                            in: FontSettingsDefaults.minFontSize...FontSettingsDefaults.maxFontSize,
+                            step: 1
+                        )
+                        
+                        Text("A")
+                            .font(.system(size: 18))
+                            .foregroundStyle(.secondary)
+                        
+                        Stepper("", value: $chatFontSize, in: FontSettingsDefaults.minFontSize...FontSettingsDefaults.maxFontSize)
+                            .labelsHidden()
+                    }
+                    
+                    Text("Font size for chat messages and AI responses")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.vertical, 4)
+                
+                // System-wide Font Size
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("System-wide")
+                        Spacer()
+                        Text("\(Int(systemFontSize)) pt")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Text("A")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                        
+                        Slider(
+                            value: $systemFontSize,
+                            in: FontSettingsDefaults.minFontSize...FontSettingsDefaults.maxFontSize,
+                            step: 1
+                        )
+                        
+                        Text("A")
+                            .font(.system(size: 18))
+                            .foregroundStyle(.secondary)
+                        
+                        Stepper("", value: $systemFontSize, in: FontSettingsDefaults.minFontSize...FontSettingsDefaults.maxFontSize)
+                            .labelsHidden()
+                    }
+                    
+                    Text("Default font size for UI elements")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.vertical, 4)
+                
+                // Reset button
+                HStack {
+                    Spacer()
+                    Button("Reset to Defaults") {
+                        withAnimation {
+                            editorFontSize = FontSettingsDefaults.editorFontSize
+                            chatFontSize = FontSettingsDefaults.chatFontSize
+                            systemFontSize = FontSettingsDefaults.systemFontSize
+                        }
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
+                }
             } header: {
-                Text("General")
+                Text("Font Size")
             }
         }
         .formStyle(.grouped)
@@ -128,4 +250,3 @@ struct ToolsSettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
-

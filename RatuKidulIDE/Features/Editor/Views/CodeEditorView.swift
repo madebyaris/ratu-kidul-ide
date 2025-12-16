@@ -14,6 +14,12 @@ struct CodeEditorView: View {
         cursorPositions: [CursorPosition(line: 1, column: 1)]
     )
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("editorFontSize") private var editorFontSize: Double = FontSettingsDefaults.editorFontSize
+    
+    /// Editor font based on settings
+    private var editorFont: NSFont {
+        .monospacedSystemFont(ofSize: CGFloat(editorFontSize), weight: .regular)
+    }
     
     var body: some View {
         SourceEditor(
@@ -22,7 +28,7 @@ struct CodeEditorView: View {
             configuration: SourceEditorConfiguration(
                 appearance: .init(
                     theme: currentTheme,
-                    font: .monospacedSystemFont(ofSize: 13, weight: .regular),
+                    font: editorFont,
                     wrapLines: true
                 ),
                 behavior: .init(

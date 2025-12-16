@@ -4,11 +4,37 @@ actor OpenAIProvider: AIProvider {
     let id = "openai"
     let displayName = "OpenAI"
     
-    private let baseURL = URL(string: "https://api.openai.com/v1/chat/completions")!
+    private let defaultBaseURL = URL(string: "https://api.openai.com/v1/chat/completions")!
     private let keychain: KeychainService
     
     init(keychain: KeychainService) {
         self.keychain = keychain
+    }
+    
+    /// Get the appropriate API URL for the config
+    private func getAPIURL(for config: ModelConfig) -> URL {
+        // If custom base URL is set, use it (don't modify it)
+        if let customURL = config.customBaseURL, !customURL.isEmpty {
+            // Append /chat/completions if the URL doesn't already have it
+            var urlString = customURL
+            if !urlString.hasSuffix("/chat/completions") {
+                if !urlString.hasSuffix("/") {
+                    urlString += "/"
+                }
+                urlString += "chat/completions"
+            }
+            return URL(string: urlString) ?? defaultBaseURL
+        }
+        return defaultBaseURL
+    }
+    
+    /// Get the appropriate keychain key for the config
+    private func getKeychainKey(for config: ModelConfig) -> String {
+        let modelId = config.modelId.lowercased()
+        if modelId.hasPrefix("openai-compatible/") {
+            return "openai_compatible_api_key"
+        }
+        return "openai_api_key"
     }
     
     func streamResponse(
@@ -20,11 +46,13 @@ actor OpenAIProvider: AIProvider {
         onComplete: @escaping (String, [ToolCall]?) async -> Void,
         onError: @escaping (Error) -> Void
     ) async throws {
-        guard let apiKey = try await keychain.get("openai_api_key") else {
+        let keychainKey = getKeychainKey(for: config)
+        guard let apiKey = try await keychain.get(keychainKey) else {
             throw ProviderError.missingAPIKey
         }
         
-        var request = URLRequest(url: baseURL)
+        let apiURL = getAPIURL(for: config)
+        var request = URLRequest(url: apiURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -189,7 +217,10 @@ actor OpenAIProvider: AIProvider {
         messages: [LLMMessage],
         tools: [UserTool]?
     ) throws -> OpenAIRequest {
-        let modelId = config.modelId.replacingOccurrences(of: "openai/", with: "")
+        // Remove provider prefix from model ID
+        var modelId = config.modelId
+        modelId = modelId.replacingOccurrences(of: "openai/", with: "")
+        modelId = modelId.replacingOccurrences(of: "openai-compatible/", with: "")
         
         let openAIMessages = messages.map { message -> OpenAIRequest.Message in
             switch message {

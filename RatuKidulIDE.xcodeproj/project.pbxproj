@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -43,6 +43,7 @@
 		A4F6E06584C22ACA39BBFB01 /* OpenRouterProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2612B62FA329A0F5F46B5726 /* OpenRouterProvider.swift */; };
 		A691800491B09F86AB9B443F /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 327AD9994E9BD9F555A67732 /* EmptyStateView.swift */; };
 		A88A4FB2D2E5E18075B49426 /* CodeEditLanguages in Frameworks */ = {isa = PBXBuildFile; productRef = AD34D473855777602A1D87C0 /* CodeEditLanguages */; };
+		B1231E6058C655463E54BD34 /* FontSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A7FADCC99EDB298F77BF13 /* FontSettings.swift */; };
 		B9B5145475EC23A946FF2F5D /* ProviderRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CA781176627D6BDB0BC737 /* ProviderRegistry.swift */; };
 		BF58EAD0FE71C65F643BB03A /* TokenCounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8091E7082D8F0A59C090D6F /* TokenCounter.swift */; };
 		BF7A5496776A8DF683F0991C /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26D71622C4864CAD5D778E6 /* KeychainService.swift */; };
@@ -89,7 +90,7 @@
 		542154F893B3FCC0CB4A016D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		62840CF1E9624FA86665258B /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		66CA781176627D6BDB0BC737 /* ProviderRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderRegistry.swift; sourceTree = "<group>"; };
-		74854133B384AD3809539ECF /* Ratu Kidul IDE.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Ratu Kidul IDE.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		74854133B384AD3809539ECF /* RatuKidulIDE.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RatuKidulIDE.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7FEF816594060345AA121FAC /* APIKeysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeysView.swift; sourceTree = "<group>"; };
 		8619C540DAF541200C7C3EBC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8BD5FF9B3C475AFA8F557F3C /* AddModelForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddModelForm.swift; sourceTree = "<group>"; };
@@ -103,6 +104,7 @@
 		A9684559950304B66445921F /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		A99E6696B69594967CEE9256 /* OpenAIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIProvider.swift; sourceTree = "<group>"; };
 		AE83F993428292885F2662A8 /* SummaryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryService.swift; sourceTree = "<group>"; };
+		B1A7FADCC99EDB298F77BF13 /* FontSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontSettings.swift; sourceTree = "<group>"; };
 		B8091E7082D8F0A59C090D6F /* TokenCounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenCounter.swift; sourceTree = "<group>"; };
 		BCDF4E8F8195F64F51B07DCA /* UserMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserMessageView.swift; sourceTree = "<group>"; };
 		BD9E5340DCC1E615EC998117 /* LMStudioProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LMStudioProvider.swift; sourceTree = "<group>"; };
@@ -136,7 +138,7 @@
 		1F77D83BB4CC113C507E45CE /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				74854133B384AD3809539ECF /* Ratu Kidul IDE.app */,
+				74854133B384AD3809539ECF /* RatuKidulIDE.app */,
 				0ECAE172A3BA36264C4382FA /* RatuKidulIDETests.xctest */,
 			);
 			name = Products;
@@ -357,6 +359,7 @@
 			isa = PBXGroup;
 			children = (
 				FFB789ED3D914BE851957E39 /* ContextBuilder.swift */,
+				B1A7FADCC99EDB298F77BF13 /* FontSettings.swift */,
 				F26D71622C4864CAD5D778E6 /* KeychainService.swift */,
 				AE83F993428292885F2662A8 /* SummaryService.swift */,
 				B8091E7082D8F0A59C090D6F /* TokenCounter.swift */,
@@ -394,7 +397,7 @@
 				AD34D473855777602A1D87C0 /* CodeEditLanguages */,
 			);
 			productName = RatuKidulIDE;
-			productReference = 74854133B384AD3809539ECF /* Ratu Kidul IDE.app */;
+			productReference = 74854133B384AD3809539ECF /* RatuKidulIDE.app */;
 			productType = "com.apple.product-type.application";
 		};
 		FF39553E450331A525A5F5D0 /* RatuKidulIDETests */ = {
@@ -422,7 +425,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2610;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					2F88F79EFC196036F6BE9CDD = {
 						DevelopmentTeam = "";
@@ -444,6 +447,7 @@
 				766FCB2AF2F71CDA25A4E28A /* XCRemoteSwiftPackageReference "CodeEditLanguages" */,
 				162A329CC4FC3E71D4BF3D11 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */,
 			);
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -489,6 +493,7 @@
 				4333CDECD22E36038705EC8D /* EditorTabManager.swift in Sources */,
 				A691800491B09F86AB9B443F /* EmptyStateView.swift in Sources */,
 				986F5425AFBDBDCAECB0C7FD /* FileExplorerView.swift in Sources */,
+				B1231E6058C655463E54BD34 /* FontSettings.swift in Sources */,
 				962E0D728DD8877995B67A9B /* GoogleProvider.swift in Sources */,
 				FD3E1367622F4BB61F14EC08 /* GrokProvider.swift in Sources */,
 				BF7A5496776A8DF683F0991C /* KeychainService.swift in Sources */,
@@ -540,7 +545,6 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -587,11 +591,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -600,12 +602,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -646,11 +647,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -665,13 +664,12 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -683,7 +681,6 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -702,16 +699,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGN_ENTITLEMENTS = RatuKidulIDE/Resources/RatuKidulIDE.entitlements;
-				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readwrite;
 				ENABLE_HARDENED_RUNTIME = NO;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
-				ENABLE_USER_SELECTED_FILES = readwrite;
 				INFOPLIST_FILE = RatuKidulIDE/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -731,16 +723,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGN_ENTITLEMENTS = RatuKidulIDE/Resources/RatuKidulIDE.entitlements;
-				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readwrite;
 				ENABLE_HARDENED_RUNTIME = NO;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
-				ENABLE_USER_SELECTED_FILES = readwrite;
 				INFOPLIST_FILE = RatuKidulIDE/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

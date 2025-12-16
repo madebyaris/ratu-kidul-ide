@@ -27,6 +27,7 @@ struct ChatView: View {
 struct ChatContentView: View {
     @Bindable var viewModel: ChatViewModel
     @State private var inputHeight: CGFloat = 120
+    @State private var hasScrolledToBottom = false
     
     var body: some View {
         GeometryReader { geometry in
@@ -35,26 +36,48 @@ struct ChatContentView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 20) {
+                            // Load more button at top
+                            if viewModel.hasMoreMessages {
+                                LoadMoreButton(
+                                    isLoading: viewModel.isLoadingMore,
+                                    onLoadMore: {
+                                        Task {
+                                            await viewModel.loadMoreMessages()
+                                        }
+                                    }
+                                )
+                                .id("load-more")
+                            }
+                            
                             // Iterate through conversation turns (user prompt + AI responses)
                             ForEach(viewModel.conversationTurns) { turn in
                                 ConversationTurnView(turn: turn)
                                     .id(turn.id)
                             }
                             
+                            // Bottom anchor for scrolling
+                            Color.clear
+                                .frame(height: 1)
+                                .id("bottom-anchor")
+                            
                             // Bottom spacer to ensure content doesn't hide behind input
                             Color.clear
                                 .frame(height: inputHeight + 20)
                         }
                         .padding()
-                        // Prevent large empty "dead zone" above messages by top-aligning expanded content
-                        //.frame(minHeight: max(0, geometry.size.height - inputHeight), alignment: .top)
-                        //.frame(maxWidth: .infinity)
                     }
                     .frame(width: geometry.size.width, height: geometry.size.height)
-                    .onChange(of: viewModel.conversationTurns.count) { _, _ in
-                        withAnimation {
-                            if let lastTurn = viewModel.conversationTurns.last {
-                                proxy.scrollTo(lastTurn.id, anchor: .bottom)
+                    .onChange(of: viewModel.conversationTurns.count) { oldCount, newCount in
+                        // Scroll to bottom when new messages are added
+                        if newCount > oldCount || !hasScrolledToBottom {
+                            scrollToBottom(proxy: proxy)
+                        }
+                    }
+                    .onAppear {
+                        // Scroll to bottom on initial load after a short delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            if !hasScrolledToBottom && !viewModel.conversationTurns.isEmpty {
+                                scrollToBottom(proxy: proxy)
                             }
                         }
                     }
@@ -98,6 +121,45 @@ struct ChatContentView: View {
         .onPreferenceChange(InputHeightPreferenceKey.self) { height in
             inputHeight = height
         }
+    }
+    
+    private func scrollToBottom(proxy: ScrollViewProxy) {
+        withAnimation(.easeOut(duration: 0.2)) {
+            proxy.scrollTo("bottom-anchor", anchor: .bottom)
+        }
+        hasScrolledToBottom = true
+    }
+}
+
+// MARK: - Load More Button
+
+struct LoadMoreButton: View {
+    let isLoading: Bool
+    let onLoadMore: () -> Void
+    
+    var body: some View {
+        Button(action: onLoadMore) {
+            HStack(spacing: 8) {
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                } else {
+                    Image(systemName: "arrow.up.circle")
+                        .font(.caption)
+                }
+                Text(isLoading ? "Loading..." : "Load earlier messages")
+                    .font(.caption)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color(.controlBackgroundColor))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(isLoading)
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, 8)
     }
 }
 
@@ -173,4 +235,3 @@ struct MessageSetView: View {
         }
     }
 }
-

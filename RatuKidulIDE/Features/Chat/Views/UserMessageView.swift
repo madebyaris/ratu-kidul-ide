@@ -8,6 +8,7 @@ struct UserMessageView: View {
     
     @State private var isExpanded = true
     @State private var isHovering = false
+    @AppStorage("chatFontSize") private var chatFontSize: Double = FontSettingsDefaults.chatFontSize
     
     // Collapse long prompts by default
     private let collapseThreshold = 500
@@ -43,9 +44,11 @@ struct UserMessageView: View {
                     Group {
                         if shouldShowCollapseButton && !isExpanded {
                             Text(String(prompt.prefix(collapseThreshold)) + "...")
+                                .font(.system(size: chatFontSize))
                                 .textSelection(.enabled)
                         } else {
                             Text(prompt)
+                                .font(.system(size: chatFontSize))
                                 .textSelection(.enabled)
                         }
                     }
@@ -115,4 +118,3 @@ struct UserMessageView: View {
     .padding()
     .frame(width: 600)
 }
-

@@ -79,6 +79,7 @@ struct AddModelForm: View {
     @State private var systemPrompt: String = ""
     @State private var isDefault: Bool = false
     @State private var contextWindowText: String = "128000"
+    @State private var customBaseURL: String = ""
     @State private var isLoadingKey = false
     @State private var errorMessage: String?
     
@@ -117,7 +118,13 @@ struct AddModelForm: View {
             _systemPrompt = State(initialValue: model.systemPrompt)
             _isDefault = State(initialValue: model.isDefault)
             _contextWindowText = State(initialValue: String(model.effectiveContextWindow))
+            _customBaseURL = State(initialValue: model.customBaseURL ?? "")
         }
+    }
+    
+    /// Whether the selected provider supports custom base URL
+    private var supportsCustomURL: Bool {
+        selectedProvider == .openaiCompatible || selectedProvider == .anthropicCompatible
     }
     
     var body: some View {
@@ -156,6 +163,20 @@ struct AddModelForm: View {
                         Text("API key is stored securely in macOS Keychain")
                     } else {
                         Text("No API key required for local providers")
+                    }
+                }
+                
+                // Custom Base URL section for compatible providers
+                if supportsCustomURL {
+                    Section {
+                        TextField(text: $customBaseURL, prompt: Text(placeholderBaseURL)) {
+                            Text("API Base URL")
+                        }
+                        .textFieldStyle(.roundedBorder)
+                    } header: {
+                        Text("API Endpoint")
+                    } footer: {
+                        Text("Enter the full base URL for the API (e.g., https://your-server.com/v1). The URL will be used as-is without modification.")
                     }
                 }
                 
@@ -260,6 +281,14 @@ struct AddModelForm: View {
         }
     }
     
+    private var placeholderBaseURL: String {
+        switch selectedProvider {
+        case .openaiCompatible: return "https://api.example.com/v1"
+        case .anthropicCompatible: return "https://api.example.com/v1"
+        default: return ""
+        }
+    }
+    
     private var defaultContextWindow: Int {
         let lowercaseModelId = modelId.lowercased()
         
@@ -356,6 +385,7 @@ struct AddModelForm: View {
             existingModel.systemPrompt = systemPrompt
             existingModel.isDefault = isDefault
             existingModel.contextWindow = contextWindowValue
+            existingModel.customBaseURL = supportsCustomURL && !customBaseURL.isEmpty ? customBaseURL : nil
             
             // If setting as default, unset others
             if isDefault {
@@ -375,7 +405,8 @@ struct AddModelForm: View {
                 author: .user,
                 systemPrompt: systemPrompt,
                 isDefault: isDefault,
-                contextWindow: contextWindowValue
+                contextWindow: contextWindowValue,
+                customBaseURL: supportsCustomURL && !customBaseURL.isEmpty ? customBaseURL : nil
             )
             
             // If setting as default, unset others

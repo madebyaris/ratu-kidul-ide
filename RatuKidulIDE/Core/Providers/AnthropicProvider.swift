@@ -5,11 +5,37 @@ actor AnthropicProvider: AIProvider {
     let id = "anthropic"
     let displayName = "Anthropic"
     
-    private let baseURL = URL(string: "https://api.anthropic.com/v1/messages")!
+    private let defaultBaseURL = URL(string: "https://api.anthropic.com/v1/messages")!
     private let keychain: KeychainService
     
     init(keychain: KeychainService) {
         self.keychain = keychain
+    }
+    
+    /// Get the appropriate API URL for the config
+    private func getAPIURL(for config: ModelConfig) -> URL {
+        // If custom base URL is set, use it (don't modify it)
+        if let customURL = config.customBaseURL, !customURL.isEmpty {
+            // Append /messages if the URL doesn't already have it
+            var urlString = customURL
+            if !urlString.hasSuffix("/messages") {
+                if !urlString.hasSuffix("/") {
+                    urlString += "/"
+                }
+                urlString += "messages"
+            }
+            return URL(string: urlString) ?? defaultBaseURL
+        }
+        return defaultBaseURL
+    }
+    
+    /// Get the appropriate keychain key for the config
+    private func getKeychainKey(for config: ModelConfig) -> String {
+        let modelId = config.modelId.lowercased()
+        if modelId.hasPrefix("anthropic-compatible/") {
+            return "anthropic_compatible_api_key"
+        }
+        return "anthropic_api_key"
     }
     
     func streamResponse(
@@ -21,11 +47,13 @@ actor AnthropicProvider: AIProvider {
         onComplete: @escaping (String, [ToolCall]?) async -> Void,
         onError: @escaping (Error) -> Void
     ) async throws {
-        guard let apiKey = try await keychain.get("anthropic_api_key") else {
+        let keychainKey = getKeychainKey(for: config)
+        guard let apiKey = try await keychain.get(keychainKey) else {
             throw ProviderError.missingAPIKey
         }
         
-        var request = URLRequest(url: baseURL)
+        let apiURL = getAPIURL(for: config)
+        var request = URLRequest(url: apiURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
@@ -94,7 +122,10 @@ actor AnthropicProvider: AIProvider {
         messages: [LLMMessage],
         tools: [UserTool]?
     ) throws -> AnthropicRequest {
-        let modelId = config.modelId.replacingOccurrences(of: "anthropic/", with: "")
+        // Remove provider prefix from model ID
+        var modelId = config.modelId
+        modelId = modelId.replacingOccurrences(of: "anthropic/", with: "")
+        modelId = modelId.replacingOccurrences(of: "anthropic-compatible/", with: "")
         
         let anthropicMessages = messages.compactMap { message -> AnthropicRequest.Message? in
             switch message {
