@@ -154,7 +154,7 @@ RatuKidulIDE/
 ### Author
 
 **Aris Setiawan**  
-Dev Expert Community at [MiniMax](https://www.minimax.com)
+Dev Expert Community at [MiniMax](https://www.minimax.io)
 
 - 🌐 Website: [madebyaris.com](https://madebyaris.com)
 - 💻 GitHub: [@madebyaris](https://github.com/madebyaris)
