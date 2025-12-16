@@ -1,0 +1,44 @@
+name: RatuKidulIDE
+options:
+  bundleIdPrefix: sh.ratukidul
+  deploymentTarget:
+    macOS: "14.0"
+  developmentLanguage: en
+
+targets:
+  RatuKidulIDE:
+    type: application
+    platform: macOS
+    sources:
+      - path: RatuKidulIDE
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: sh.ratukidul.ide
+      PRODUCT_NAME: Ratu Kidul IDE
+      SWIFT_VERSION: "5.9"
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
+      INFOPLIST_FILE: RatuKidulIDE/Resources/Info.plist
+      CODE_SIGN_ENTITLEMENTS: RatuKidulIDE/Resources/RatuKidulIDE.entitlements
+      CODE_SIGN_IDENTITY: ""
+      CODE_SIGN_STYLE: Manual
+      DEVELOPMENT_TEAM: ""
+      ENABLE_HARDENED_RUNTIME: false
+      CODE_SIGNING_ALLOWED: false
+    info:
+      path: RatuKidulIDE/Resources/Info.plist
+      properties:
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        LSMinimumSystemVersion: "14.0"
+        NSHumanReadableCopyright: "Copyright © 2025"
+
+  RatuKidulIDETests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: RatuKidulIDETests
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: sh.ratukidul.ide.tests
+      SWIFT_VERSION: "5.9"
+    dependencies:
+      - target: RatuKidulIDE
+
