@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -90,7 +90,7 @@
 		542154F893B3FCC0CB4A016D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		62840CF1E9624FA86665258B /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		66CA781176627D6BDB0BC737 /* ProviderRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderRegistry.swift; sourceTree = "<group>"; };
-		74854133B384AD3809539ECF /* RatuKidulIDE.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RatuKidulIDE.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		74854133B384AD3809539ECF /* RatuKidulIDE.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = RatuKidulIDE.app; path = "Ratu Kidul IDE.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		7FEF816594060345AA121FAC /* APIKeysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeysView.swift; sourceTree = "<group>"; };
 		8619C540DAF541200C7C3EBC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8BD5FF9B3C475AFA8F557F3C /* AddModelForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddModelForm.swift; sourceTree = "<group>"; };
@@ -447,7 +447,6 @@
 				766FCB2AF2F71CDA25A4E28A /* XCRemoteSwiftPackageReference "CodeEditLanguages" */,
 				162A329CC4FC3E71D4BF3D11 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */,
 			);
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -751,7 +750,7 @@
 				AAED0AAD324A643AAE21DD99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
+			defaultConfigurationName = Release;
 		};
 		7D87F253D9426F9AAA648B7A /* Build configuration list for PBXProject "RatuKidulIDE" */ = {
 			isa = XCConfigurationList;
@@ -760,7 +759,7 @@
 				41639638B81546DB5F3F3718 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
+			defaultConfigurationName = Release;
 		};
 		A7D364A45C4D5A6E57313764 /* Build configuration list for PBXNativeTarget "RatuKidulIDE" */ = {
 			isa = XCConfigurationList;
@@ -769,7 +768,7 @@
 				F0693FCBB287EBB47FB60E5D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 
