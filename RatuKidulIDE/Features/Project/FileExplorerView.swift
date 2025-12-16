@@ -4,6 +4,7 @@ import AppKit
 
 struct FileExplorerView: View {
     let projectPath: String
+    var onFileOpen: ((String, String) -> Void)?  // (path, name) -> Void
     
     @State private var rootNode: FileNode?
     @State private var expandedFolders: Set<String> = []
@@ -128,6 +129,9 @@ struct FileExplorerView: View {
                                 },
                                 onRevealInFinder: { path in
                                     revealInFinder(path: path)
+                                },
+                                onFileOpen: { path, name in
+                                    onFileOpen?(path, name)
                                 },
                                 onNewItemSubmit: { createNewItem() },
                                 onNewItemCancel: { cancelNewItem() }
@@ -425,6 +429,7 @@ struct FileNodeView: View {
     let onCreateFile: (String) -> Void
     let onCreateFolder: (String) -> Void
     let onRevealInFinder: (String) -> Void
+    let onFileOpen: (String, String) -> Void  // (path, name) -> Void
     let onNewItemSubmit: () -> Void
     let onNewItemCancel: () -> Void
     
@@ -499,6 +504,8 @@ struct FileNodeView: View {
                         }
                     } else {
                         selectedFile = node.path
+                        // Open file in editor tab
+                        onFileOpen(node.path, node.name)
                     }
                 }) {
                     HStack(spacing: 4) {
@@ -608,6 +615,7 @@ struct FileNodeView: View {
                             onCreateFile: onCreateFile,
                             onCreateFolder: onCreateFolder,
                             onRevealInFinder: onRevealInFinder,
+                            onFileOpen: onFileOpen,
                             onNewItemSubmit: onNewItemSubmit,
                             onNewItemCancel: onNewItemCancel
                         )

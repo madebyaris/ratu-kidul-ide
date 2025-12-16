@@ -12,10 +12,19 @@ let package = Package(
             targets: ["RatuKidulIDE"]
         )
     ],
+    dependencies: [
+        // CodeEdit's tree-sitter powered source editor
+        .package(url: "https://github.com/CodeEditApp/CodeEditSourceEditor", from: "0.15.0"),
+        // Language definitions for syntax highlighting
+        .package(url: "https://github.com/CodeEditApp/CodeEditLanguages", from: "0.1.20")
+    ],
     targets: [
         .executableTarget(
             name: "RatuKidulIDE",
-            dependencies: [],
+            dependencies: [
+                "CodeEditSourceEditor",
+                "CodeEditLanguages"
+            ],
             path: "RatuKidulIDE"
         ),
         .testTarget(

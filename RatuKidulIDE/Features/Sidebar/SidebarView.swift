@@ -5,14 +5,21 @@ struct SidebarView: View {
     @Binding var selectedProjectId: String?
     @Binding var selectedChatId: String?
     @Binding var showSettings: Bool
+    var onFileOpen: ((String, String) -> Void)?  // (path, name) -> Void
     
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Project.createdAt, order: .reverse) private var projects: [Project]
     
-    init(selectedProjectId: Binding<String?>, selectedChatId: Binding<String?>, showSettings: Binding<Bool>) {
+    init(
+        selectedProjectId: Binding<String?>,
+        selectedChatId: Binding<String?>,
+        showSettings: Binding<Bool>,
+        onFileOpen: ((String, String) -> Void)? = nil
+    ) {
         self._selectedProjectId = selectedProjectId
         self._selectedChatId = selectedChatId
         self._showSettings = showSettings
+        self.onFileOpen = onFileOpen
     }
     
     var body: some View {
@@ -20,8 +27,11 @@ struct SidebarView: View {
             // File Explorer (only when project is selected)
             if let projectId = selectedProjectId,
                let project = projects.first(where: { $0.id == projectId }) {
-                FileExplorerView(projectPath: project.path ?? "")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                FileExplorerView(
+                    projectPath: project.path ?? "",
+                    onFileOpen: onFileOpen
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 // Empty state when no project
                 VStack(spacing: 16) {

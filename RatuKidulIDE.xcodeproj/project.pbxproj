@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -20,11 +20,15 @@
 		2D56847548863DA1F2E41D81 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 542154F893B3FCC0CB4A016D /* AppDelegate.swift */; };
 		3198C68513748C82AABC341B /* ContextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB789ED3D914BE851957E39 /* ContextBuilder.swift */; };
 		345EB23F96F882686956A6FB /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9684559950304B66445921F /* ChatView.swift */; };
+		375FACDE5BE8D56653BA39D2 /* EditorTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BCC623508CA095F691003E7 /* EditorTab.swift */; };
 		3D430A4DEAA5436A4864892D /* MiniMaxProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3F6F1F1B69CFB8020C58C61 /* MiniMaxProvider.swift */; };
+		4333CDECD22E36038705EC8D /* EditorTabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8BCAB356920980A69ACDF1 /* EditorTabManager.swift */; };
 		50867CA5F5A74A6B1C93057F /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62840CF1E9624FA86665258B /* SidebarView.swift */; };
 		58F1D1226CE635CCCFA14985 /* AddModelForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BD5FF9B3C475AFA8F557F3C /* AddModelForm.swift */; };
+		5E82D440CC16E99381C16588 /* EditorContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0DB6F7F6CB8515289A56DA0 /* EditorContentView.swift */; };
 		60B29DEB7950588FEE2AAF2A /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426E813DE112B910BC8886AE /* AppState.swift */; };
 		6B3298943611B3CCEE5FDE66 /* PerplexityProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1F92657D993BEA4C16D7C67 /* PerplexityProvider.swift */; };
+		76C442C18E823722E939AB89 /* CodeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BD76EBF4769E00E6925E4B /* CodeEditorView.swift */; };
 		7FD29F4CB26DD53E7205ACE0 /* APIKeysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FEF816594060345AA121FAC /* APIKeysView.swift */; };
 		89940E2E5F5118299E6AB426 /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = 443E1FA8904B748A5BAE75BF /* Project.swift */; };
 		90109840D0A94D55DA587512 /* UserMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDF4E8F8195F64F51B07DCA /* UserMessageView.swift */; };
@@ -34,12 +38,15 @@
 		9558B6BB1BDC1BBE7995AB28 /* ProjectWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C49D969DA7B99CA44A8C40F /* ProjectWorkspaceView.swift */; };
 		962E0D728DD8877995B67A9B /* GoogleProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BC950EA73F9F3B8C1E1AE34 /* GoogleProvider.swift */; };
 		986F5425AFBDBDCAECB0C7FD /* FileExplorerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3EFEC0211A274CD18D6BE1E /* FileExplorerView.swift */; };
+		99C164869A002667181C266E /* TabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EDDB7FADCD6EA9E6B23C3C2 /* TabBarView.swift */; };
 		9CE3DF4D72CD1BE6493BFFE5 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46F2AFD7CCC26446C5C35DEB /* Message.swift */; };
 		A4F6E06584C22ACA39BBFB01 /* OpenRouterProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2612B62FA329A0F5F46B5726 /* OpenRouterProvider.swift */; };
 		A691800491B09F86AB9B443F /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 327AD9994E9BD9F555A67732 /* EmptyStateView.swift */; };
+		A88A4FB2D2E5E18075B49426 /* CodeEditLanguages in Frameworks */ = {isa = PBXBuildFile; productRef = AD34D473855777602A1D87C0 /* CodeEditLanguages */; };
 		B9B5145475EC23A946FF2F5D /* ProviderRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CA781176627D6BDB0BC737 /* ProviderRegistry.swift */; };
 		BF58EAD0FE71C65F643BB03A /* TokenCounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8091E7082D8F0A59C090D6F /* TokenCounter.swift */; };
 		BF7A5496776A8DF683F0991C /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26D71622C4864CAD5D778E6 /* KeychainService.swift */; };
+		C124BC0A944E7D26B3016E28 /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = 4570D9083A6D485997EFEEBC /* CodeEditSourceEditor */; };
 		CADC48DDA9342005D18F3C72 /* ProjectChatHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11DEF9CDC0A74C40DB1FF46F /* ProjectChatHistoryView.swift */; };
 		D0A1FDFC83A4CC8440EDBA0D /* AnthropicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D230CE1E98DD117A9A332FA /* AnthropicProvider.swift */; };
 		D542B7F506C15540DFB6C957 /* OpenAIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A99E6696B69594967CEE9256 /* OpenAIProvider.swift */; };
@@ -62,10 +69,13 @@
 
 /* Begin PBXFileReference section */
 		02459AF8E28DAADDEC5DA963 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		0BCC623508CA095F691003E7 /* EditorTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTab.swift; sourceTree = "<group>"; };
 		0ECAE172A3BA36264C4382FA /* RatuKidulIDETests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RatuKidulIDETests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		11DEF9CDC0A74C40DB1FF46F /* ProjectChatHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectChatHistoryView.swift; sourceTree = "<group>"; };
 		2283011926D25164D4DC05ED /* Attachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Attachment.swift; sourceTree = "<group>"; };
+		24BD76EBF4769E00E6925E4B /* CodeEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeEditorView.swift; sourceTree = "<group>"; };
 		2612B62FA329A0F5F46B5726 /* OpenRouterProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenRouterProvider.swift; sourceTree = "<group>"; };
+		2C8BCAB356920980A69ACDF1 /* EditorTabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTabManager.swift; sourceTree = "<group>"; };
 		2DE4414E2FAEBE56AA086926 /* RatuKidulIDE.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RatuKidulIDE.entitlements; sourceTree = "<group>"; };
 		327AD9994E9BD9F555A67732 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		32EB54D55617356F69E055D2 /* ModelsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSettingsView.swift; sourceTree = "<group>"; };
@@ -79,7 +89,7 @@
 		542154F893B3FCC0CB4A016D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		62840CF1E9624FA86665258B /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		66CA781176627D6BDB0BC737 /* ProviderRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderRegistry.swift; sourceTree = "<group>"; };
-		74854133B384AD3809539ECF /* RatuKidulIDE.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RatuKidulIDE.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		74854133B384AD3809539ECF /* Ratu Kidul IDE.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Ratu Kidul IDE.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		7FEF816594060345AA121FAC /* APIKeysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeysView.swift; sourceTree = "<group>"; };
 		8619C540DAF541200C7C3EBC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8BD5FF9B3C475AFA8F557F3C /* AddModelForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddModelForm.swift; sourceTree = "<group>"; };
@@ -88,6 +98,7 @@
 		91C04DC512A2540B6D9F907E /* ModelConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelConfig.swift; sourceTree = "<group>"; };
 		9C9B4850BBC8EA916D098AF3 /* AIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProvider.swift; sourceTree = "<group>"; };
 		9CB393518FE49D30679BC135 /* Chat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chat.swift; sourceTree = "<group>"; };
+		9EDDB7FADCD6EA9E6B23C3C2 /* TabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarView.swift; sourceTree = "<group>"; };
 		A4B53CFA2F13F3D4FA3A7152 /* ChatInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputView.swift; sourceTree = "<group>"; };
 		A9684559950304B66445921F /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		A99E6696B69594967CEE9256 /* OpenAIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIProvider.swift; sourceTree = "<group>"; };
@@ -103,16 +114,29 @@
 		E3F6F1F1B69CFB8020C58C61 /* MiniMaxProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniMaxProvider.swift; sourceTree = "<group>"; };
 		EB2933A190E593BE11FBB4A3 /* OllamaProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaProvider.swift; sourceTree = "<group>"; };
 		EC68E4750B8D4476FC0A308D /* RatuKidulIDETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatuKidulIDETests.swift; sourceTree = "<group>"; };
+		F0DB6F7F6CB8515289A56DA0 /* EditorContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorContentView.swift; sourceTree = "<group>"; };
 		F26D71622C4864CAD5D778E6 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		FC53339FE7761A88B579303A /* RatuKidulApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatuKidulApp.swift; sourceTree = "<group>"; };
 		FFB789ED3D914BE851957E39 /* ContextBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextBuilder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		175A3B181DE1140FC77FFC00 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C124BC0A944E7D26B3016E28 /* CodeEditSourceEditor in Frameworks */,
+				A88A4FB2D2E5E18075B49426 /* CodeEditLanguages in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
 		1F77D83BB4CC113C507E45CE /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				74854133B384AD3809539ECF /* RatuKidulIDE.app */,
+				74854133B384AD3809539ECF /* Ratu Kidul IDE.app */,
 				0ECAE172A3BA36264C4382FA /* RatuKidulIDETests.xctest */,
 			);
 			name = Products;
@@ -144,6 +168,16 @@
 				8619C540DAF541200C7C3EBC /* SettingsView.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		3FBF6BDCE705E498EC11438A /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				24BD76EBF4769E00E6925E4B /* CodeEditorView.swift */,
+				F0DB6F7F6CB8515289A56DA0 /* EditorContentView.swift */,
+				9EDDB7FADCD6EA9E6B23C3C2 /* TabBarView.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 		44C8B9778A305E21647A97D0 /* RatuKidulIDE */ = {
@@ -209,6 +243,7 @@
 			isa = PBXGroup;
 			children = (
 				CFF73BA3C04F7FC955D56E10 /* Chat */,
+				C63780623B2AF92A1F03B7D8 /* Editor */,
 				A8D9C975E15855F8FB8B3017 /* Project */,
 				3D8A548089854AB994CC52F5 /* Settings */,
 				B73706DC2EFCE63CCECA2F94 /* Sidebar */,
@@ -227,6 +262,14 @@
 			path = App;
 			sourceTree = "<group>";
 		};
+		A06645912338C416B5BC1EB1 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				0BCC623508CA095F691003E7 /* EditorTab.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		A33B1173EF511CC4D95B7C95 /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -238,6 +281,14 @@
 				BCDF4E8F8195F64F51B07DCA /* UserMessageView.swift */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		A386F30F55E1B32B62CC04B2 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				2C8BCAB356920980A69ACDF1 /* EditorTabManager.swift */,
+			);
+			path = ViewModels;
 			sourceTree = "<group>";
 		};
 		A8D9C975E15855F8FB8B3017 /* Project */ = {
@@ -273,6 +324,16 @@
 				62840CF1E9624FA86665258B /* SidebarView.swift */,
 			);
 			path = Sidebar;
+			sourceTree = "<group>";
+		};
+		C63780623B2AF92A1F03B7D8 /* Editor */ = {
+			isa = PBXGroup;
+			children = (
+				A06645912338C416B5BC1EB1 /* Models */,
+				A386F30F55E1B32B62CC04B2 /* ViewModels */,
+				3FBF6BDCE705E498EC11438A /* Views */,
+			);
+			path = Editor;
 			sourceTree = "<group>";
 		};
 		CFF73BA3C04F7FC955D56E10 /* Chat */ = {
@@ -321,6 +382,7 @@
 			buildPhases = (
 				64A805C7B70082C5246E4792 /* Sources */,
 				77533720AD267D2C11FF44AF /* Resources */,
+				175A3B181DE1140FC77FFC00 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -328,9 +390,11 @@
 			);
 			name = RatuKidulIDE;
 			packageProductDependencies = (
+				4570D9083A6D485997EFEEBC /* CodeEditSourceEditor */,
+				AD34D473855777602A1D87C0 /* CodeEditLanguages */,
 			);
 			productName = RatuKidulIDE;
-			productReference = 74854133B384AD3809539ECF /* RatuKidulIDE.app */;
+			productReference = 74854133B384AD3809539ECF /* Ratu Kidul IDE.app */;
 			productType = "com.apple.product-type.application";
 		};
 		FF39553E450331A525A5F5D0 /* RatuKidulIDETests */ = {
@@ -358,7 +422,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2610;
 				TargetAttributes = {
 					2F88F79EFC196036F6BE9CDD = {
 						DevelopmentTeam = "";
@@ -376,7 +440,10 @@
 			);
 			mainGroup = F9F81DDEF3CFF73F4AB27F8D;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
+			packageReferences = (
+				766FCB2AF2F71CDA25A4E28A /* XCRemoteSwiftPackageReference "CodeEditLanguages" */,
+				162A329CC4FC3E71D4BF3D11 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -414,8 +481,12 @@
 				11069630A56553E67C61CC1F /* ChatInputView.swift in Sources */,
 				345EB23F96F882686956A6FB /* ChatView.swift in Sources */,
 				262B633C75A6CA78D726ECBB /* ChatViewModel.swift in Sources */,
+				76C442C18E823722E939AB89 /* CodeEditorView.swift in Sources */,
 				02181615CA1D2290DC0F8FE9 /* ContentView.swift in Sources */,
 				3198C68513748C82AABC341B /* ContextBuilder.swift in Sources */,
+				5E82D440CC16E99381C16588 /* EditorContentView.swift in Sources */,
+				375FACDE5BE8D56653BA39D2 /* EditorTab.swift in Sources */,
+				4333CDECD22E36038705EC8D /* EditorTabManager.swift in Sources */,
 				A691800491B09F86AB9B443F /* EmptyStateView.swift in Sources */,
 				986F5425AFBDBDCAECB0C7FD /* FileExplorerView.swift in Sources */,
 				962E0D728DD8877995B67A9B /* GoogleProvider.swift in Sources */,
@@ -439,6 +510,7 @@
 				9359D2BFE4B4D9290E5E0880 /* SettingsView.swift in Sources */,
 				50867CA5F5A74A6B1C93057F /* SidebarView.swift in Sources */,
 				DFC0DFAC52ED2C4C18B5CE3E /* SummaryService.swift in Sources */,
+				99C164869A002667181C266E /* TabBarView.swift in Sources */,
 				BF58EAD0FE71C65F643BB03A /* TokenCounter.swift in Sources */,
 				90109840D0A94D55DA587512 /* UserMessageView.swift in Sources */,
 			);
@@ -468,6 +540,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -514,9 +587,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -530,6 +605,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -570,9 +646,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -593,6 +671,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -604,6 +683,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -622,17 +702,22 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGN_ENTITLEMENTS = RatuKidulIDE/Resources/RatuKidulIDE.entitlements;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readwrite;
 				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				INFOPLIST_FILE = RatuKidulIDE/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = sh.ratukidul.ide;
 				PRODUCT_NAME = "Ratu Kidul IDE";
 				SDKROOT = macosx;
@@ -646,17 +731,22 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGN_ENTITLEMENTS = RatuKidulIDE/Resources/RatuKidulIDE.entitlements;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readwrite;
 				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				INFOPLIST_FILE = RatuKidulIDE/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = sh.ratukidul.ide;
 				PRODUCT_NAME = "Ratu Kidul IDE";
 				SDKROOT = macosx;
@@ -695,6 +785,38 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		162A329CC4FC3E71D4BF3D11 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/CodeEditApp/CodeEditSourceEditor";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.15.0;
+			};
+		};
+		766FCB2AF2F71CDA25A4E28A /* XCRemoteSwiftPackageReference "CodeEditLanguages" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/CodeEditApp/CodeEditLanguages";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.20;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4570D9083A6D485997EFEEBC /* CodeEditSourceEditor */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 162A329CC4FC3E71D4BF3D11 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */;
+			productName = CodeEditSourceEditor;
+		};
+		AD34D473855777602A1D87C0 /* CodeEditLanguages */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 766FCB2AF2F71CDA25A4E28A /* XCRemoteSwiftPackageReference "CodeEditLanguages" */;
+			productName = CodeEditLanguages;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F4206B017F43AA6FF9F002F0 /* Project object */;
 }

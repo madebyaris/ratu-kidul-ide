@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var hasRestoredState = false
     @State private var showChatHistory = false
+    @State private var tabManager = EditorTabManager()
     
     private var colorScheme: ColorScheme? {
         switch appearance {
@@ -30,7 +31,10 @@ struct ContentView: View {
             SidebarView(
                 selectedProjectId: $selectedProjectId,
                 selectedChatId: $selectedChatId,
-                showSettings: $showSettings
+                showSettings: $showSettings,
+                onFileOpen: { path, name in
+                    tabManager.openFile(path: path, name: name)
+                }
             )
             .navigationSplitViewColumnWidth(min: 220, ideal: 280, max: 350)
         } detail: {
@@ -38,7 +42,8 @@ struct ContentView: View {
                 if let projectId = selectedProjectId {
                     ProjectWorkspaceView(
                         projectId: projectId,
-                        selectedChatId: $selectedChatId
+                        selectedChatId: $selectedChatId,
+                        tabManager: tabManager
                     )
                 } else if let chatId = selectedChatId {
                     ChatView(chatId: chatId)

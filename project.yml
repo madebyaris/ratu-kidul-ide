@@ -5,12 +5,25 @@ options:
     macOS: "14.0"
   developmentLanguage: en
 
+packages:
+  CodeEditSourceEditor:
+    url: https://github.com/CodeEditApp/CodeEditSourceEditor
+    from: "0.15.0"
+  CodeEditLanguages:
+    url: https://github.com/CodeEditApp/CodeEditLanguages
+    from: "0.1.20"
+
 targets:
   RatuKidulIDE:
     type: application
     platform: macOS
     sources:
       - path: RatuKidulIDE
+    dependencies:
+      - package: CodeEditSourceEditor
+        product: CodeEditSourceEditor
+      - package: CodeEditLanguages
+        product: CodeEditLanguages
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: sh.ratukidul.ide
       PRODUCT_NAME: Ratu Kidul IDE
