@@ -31,7 +31,7 @@ struct SidebarView: View {
                     projectPath: project.path ?? "",
                     onFileOpen: onFileOpen
                 )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 // Empty state when no project
                 VStack(spacing: 16) {

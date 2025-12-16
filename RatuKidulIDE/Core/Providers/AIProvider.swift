@@ -57,6 +57,14 @@ struct ToolCall: Codable, Identifiable {
         self.arguments = arguments.mapValues { AnyCodable($0) }
     }
     
+    /// Preferred initializer when arguments are already encoded as `AnyCodable`.
+    /// Prevents accidental nesting like `AnyCodable(value: AnyCodable(value: "x"))`.
+    init(id: String, name: String, arguments: [String: AnyCodable]) {
+        self.id = id
+        self.name = name
+        self.arguments = arguments
+    }
+    
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)

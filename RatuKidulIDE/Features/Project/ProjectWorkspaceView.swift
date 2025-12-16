@@ -28,7 +28,7 @@ struct ProjectWorkspaceView: View {
                     
                     // Content area - shows active tab content
                     EditorContentView(tabManager: tabManager, chatId: selectedChatId)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
                 ProgressView("Loading project...")
@@ -121,8 +121,8 @@ struct SearchBarView: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-            
+                    .foregroundStyle(.secondary)
+                
             TextField("Search in file...", text: $tabManager.searchQuery)
                 .textFieldStyle(.plain)
                 .focused($isSearchFocused)
@@ -135,7 +135,7 @@ struct SearchBarView: View {
                     tabManager.searchQuery = ""
                 }) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
             }
@@ -147,7 +147,7 @@ struct SearchBarView: View {
                 NotificationCenter.default.post(name: .findPrevious, object: nil)
             }) {
                 Image(systemName: "chevron.up")
-            }
+                }
             .buttonStyle(.plain)
             .help("Previous Match (⇧⌘G)")
             

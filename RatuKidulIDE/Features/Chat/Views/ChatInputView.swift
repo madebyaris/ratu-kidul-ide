@@ -14,6 +14,28 @@ struct ChatInputView: View {
     @State private var hasAutoSelectedDefault = false
     @FocusState private var isFocused: Bool
     
+    // Calculate adaptive height based on line count
+    private var adaptiveHeight: CGFloat {
+        // Count lines (including empty lines)
+        let lines = text.components(separatedBy: .newlines)
+        let lineCount = lines.count
+        
+        // Base height for single line (includes padding)
+        let baseHeight: CGFloat = 36
+        // Height per additional line (approximate line height in TextEditor)
+        let lineHeight: CGFloat = 22
+        
+        // Calculate height: base + (lines - 1) * lineHeight
+        // Minimum 1 line, so we use max(1, lineCount)
+        let calculatedHeight = baseHeight + CGFloat(max(0, lineCount - 1)) * lineHeight
+        
+        // Clamp between min and max
+        let minHeight: CGFloat = 36
+        let maxHeight: CGFloat = 200
+        
+        return min(max(calculatedHeight, minHeight), maxHeight)
+    }
+    
     // Use stored context window from model config
     private var contextLimit: Int {
         selectedModels.first?.effectiveContextWindow ?? 128000
@@ -155,16 +177,38 @@ struct ChatInputView: View {
             
             // Input area
             HStack(alignment: .bottom, spacing: 8) {
-                TextField("Type your message...", text: $text, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .padding(10)
+                // Use TextEditor for better control over Shift+Enter
+                ZStack(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text("Type your message...")
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 8)
+                    }
+                    TextEditor(text: $text)
+                        .scrollContentBackground(.hidden)
+                        .padding(5)
                     .background(Color(.controlBackgroundColor))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .lineLimit(1...10)
+                        .frame(height: adaptiveHeight)
                     .focused($isFocused)
-                    .onSubmit {
+                        .animation(.easeInOut(duration: 0.15), value: text)
+                        .onKeyPress { keyPress in
+                            // Handle Enter key
+                            if keyPress.key == .return {
+                                // Check if Shift is held down
+                                if keyPress.modifiers.contains(.shift) {
+                                    // Shift+Enter: Insert newline (default behavior)
+                                    return .ignored
+                                } else {
+                                    // Enter: Send message
                         if !text.isEmpty && !isLoading {
                             onSend()
+                                    }
+                                    return .handled
+                                }
+                            }
+                            return .ignored
                         }
                     }
                 

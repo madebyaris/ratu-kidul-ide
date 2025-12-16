@@ -12,6 +12,9 @@ packages:
   CodeEditLanguages:
     url: https://github.com/CodeEditApp/CodeEditLanguages
     from: "0.1.20"
+  SwiftMarkdown:
+    url: https://github.com/swiftlang/swift-markdown
+    from: "0.7.3"
 
 targets:
   RatuKidulIDE:
@@ -24,6 +27,8 @@ targets:
         product: CodeEditSourceEditor
       - package: CodeEditLanguages
         product: CodeEditLanguages
+      - package: SwiftMarkdown
+        product: Markdown
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: sh.ratukidul.ide
       PRODUCT_NAME: Ratu Kidul IDE

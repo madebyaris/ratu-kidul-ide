@@ -1,16 +1,22 @@
 import Foundation
 
 /// MiniMax AI Provider
-/// API Documentation: https://platform.minimax.io/document/Chatcompletion_v2
+/// Uses Anthropic-compatible API endpoint as recommended by MiniMax
+/// Base URL: https://api.minimax.io/anthropic
 actor MiniMaxProvider: AIProvider {
     let id = "minimax"
     let displayName = "MiniMax"
     
-    private let baseURL = URL(string: "https://api.minimax.io/v1/")!
+    private let baseURL = URL(string: "https://api.minimax.io/anthropic")!
     private let keychain: KeychainService
     
     init(keychain: KeychainService) {
         self.keychain = keychain
+    }
+    
+    /// Get the API URL for requests
+    private func getAPIURL() -> URL {
+        return baseURL.appendingPathComponent("v1/messages")
     }
     
     func streamResponse(
@@ -26,15 +32,22 @@ actor MiniMaxProvider: AIProvider {
             throw ProviderError.missingAPIKey
         }
         
-        // Construct the full endpoint URL
-        let endpointURL = baseURL.appendingPathComponent("text/chatcompletion_v2")
+        // Use Anthropic-compatible endpoint
+        let endpointURL = getAPIURL()
         var request = URLRequest(url: endpointURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         
         let body = try buildRequestBody(config: config, messages: messages, tools: tools)
-        request.httpBody = try JSONEncoder().encode(body)
+        let requestBodyData = try JSONEncoder().encode(body)
+        request.httpBody = requestBodyData
+        
+        // Debug: Log the full request body
+        if let requestJSON = String(data: requestBodyData, encoding: .utf8) {
+            print("📤 [MiniMaxProvider] Request body (Anthropic-compatible):\n\(requestJSON)")
+        }
         
         // Use URLSession for streaming
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
@@ -51,7 +64,7 @@ actor MiniMaxProvider: AIProvider {
                 if errorData.count > 1024 { break } // Limit error message size
             }
             let errorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-            print("MiniMax API Error (\(httpResponse.statusCode)): \(errorMessage)")
+            print("❌ [MiniMaxProvider] API Error (\(httpResponse.statusCode)): \(errorMessage)")
             onError(ProviderError.requestFailed)
             throw ProviderError.requestFailed
         }
@@ -63,70 +76,105 @@ actor MiniMaxProvider: AIProvider {
             guard line.hasPrefix("data: ") else { continue }
             let jsonStr = String(line.dropFirst(6))
             
-            if jsonStr == "[DONE]" {
-                await onComplete(fullText, toolCalls.isEmpty ? nil : toolCalls)
-                return
+            // Skip empty lines and [DONE] marker
+            if jsonStr.isEmpty || jsonStr == "[DONE]" {
+                continue
             }
             
             guard let data = jsonStr.data(using: .utf8) else { continue }
             
+            // Debug: Log raw response chunks (first few only)
+            if toolCalls.isEmpty && fullText.count < 100 {
+                if let responseJSON = String(data: data, encoding: .utf8) {
+                    print("📥 [MiniMaxProvider] Response chunk:\n\(responseJSON)")
+                }
+            }
+            
             do {
-                let event = try JSONDecoder().decode(MiniMaxStreamEvent.self, from: data)
+                // Try to decode as Anthropic stream event
+                let eventDict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                guard let eventType = eventDict?["type"] as? String else { continue }
                 
-                if let choice = event.choices.first {
-                    if let delta = choice.delta {
-                        // Handle content delta
-                        if let content = delta.content {
-                            fullText += content
-                            onChunk(content)
-                        }
+                switch eventType {
+                case "content_block_delta":
+                    // Handle text content delta
+                    if let delta = eventDict?["delta"] as? [String: Any],
+                       let text = delta["text"] as? String {
+                        fullText += text
+                        onChunk(text)
+                    }
+                    
+                    // Handle tool use delta (arguments being streamed)
+                    if let delta = eventDict?["delta"] as? [String: Any],
+                       let toolUse = delta["tool_use"] as? [String: Any] {
+                        let toolId = toolUse["id"] as? String ?? ""
+                        let inputChunk = toolUse["input"] as? String ?? ""
                         
-                        // Handle tool calls if present
-                        if let deltaToolCalls = delta.toolCalls {
-                            for toolCallDelta in deltaToolCalls {
-                                if let index = toolCallDelta.index {
-                                    while toolCalls.count <= index {
-                                        toolCalls.append(ToolCall(
-                                            id: UUID().uuidString,
-                                            name: "",
-                                            arguments: [:]
-                                        ))
-                                    }
-                                    
-                                    if let id = toolCallDelta.id, !id.isEmpty {
-                                        toolCalls[index] = ToolCall(
-                                            id: id,
-                                            name: toolCallDelta.function?.name ?? toolCalls[index].name,
-                                            arguments: toolCalls[index].arguments
-                                        )
-                                    }
-                                    
-                                    if let function = toolCallDelta.function, let name = function.name, !name.isEmpty {
-                                        toolCalls[index] = ToolCall(
-                                            id: toolCalls[index].id,
-                                            name: name,
-                                            arguments: toolCalls[index].arguments
-                                        )
-                                    }
+                        // Find or create tool call
+                        if let index = toolCalls.firstIndex(where: { $0.id == toolId }) {
+                            // Accumulate arguments
+                            var currentArgs = toolCalls[index].arguments
+                            if let argData = inputChunk.data(using: .utf8),
+                               let partialArgs = try? JSONDecoder().decode([String: AnyCodable].self, from: argData) {
+                                // Merge partial args
+                                for (key, value) in partialArgs {
+                                    currentArgs[key] = value
                                 }
+                                toolCalls[index] = ToolCall(
+                                    id: toolCalls[index].id,
+                                    name: toolCalls[index].name,
+                                    arguments: currentArgs
+                                )
                             }
                         }
                     }
                     
-                    if choice.finishReason == "tool_calls" {
-                        let validToolCalls = toolCalls.filter { !$0.id.isEmpty && !$0.name.isEmpty }
-                        await onComplete(fullText, validToolCalls.isEmpty ? nil : validToolCalls)
-                        return
+                case "content_block_start":
+                    // Tool use block started
+                    if let contentBlock = eventDict?["content_block"] as? [String: Any],
+                       let toolUse = contentBlock["tool_use"] as? [String: Any],
+                       let toolId = toolUse["id"] as? String,
+                       let toolName = toolUse["name"] as? String {
+                        // Create new tool call
+                        toolCalls.append(ToolCall(
+                            id: toolId,
+                            name: toolName,
+                            arguments: [:]
+                        ))
+                        print("🔧 [MiniMaxProvider] Tool call started: \(toolName) (id: \(toolId))")
                     }
+                    
+                case "message_stop":
+                    // Finalize any pending tool calls
+                    let validToolCalls = toolCalls.filter { !$0.id.isEmpty && !$0.name.isEmpty }
+                    
+                    if !validToolCalls.isEmpty {
+                        print("🔧 [MiniMaxProvider] Tool calls completed (Anthropic format):")
+                        for (idx, call) in validToolCalls.enumerated() {
+                            print("   [\(idx)] \(call.name) (id: \(call.id))")
+                            print("      Arguments (\(call.arguments.count)):")
+                            for (key, value) in call.arguments {
+                                print("         \(key): \(value.value)")
+                            }
+                        }
+                    }
+                    
+                    await onComplete(fullText, validToolCalls.isEmpty ? nil : validToolCalls)
+                    return
+                    
+                default:
+                    break
                 }
             } catch {
                 // Skip malformed events
+                print("⚠️ [MiniMaxProvider] Failed to parse event: \(error)")
                 continue
             }
         }
         
         // Final completion
-        await onComplete(fullText, toolCalls.isEmpty ? nil : toolCalls)
+        let validToolCalls = toolCalls.filter { !$0.id.isEmpty && !$0.name.isEmpty }
+        await onComplete(fullText, validToolCalls.isEmpty ? nil : validToolCalls)
     }
     
     func validateAPIKey(_ key: String) async throws -> Bool {
@@ -156,63 +204,60 @@ actor MiniMaxProvider: AIProvider {
         config: ModelConfig,
         messages: [LLMMessage],
         tools: [UserTool]?
-    ) throws -> MiniMaxRequest {
+    ) throws -> AnthropicRequestWithTools {
         // Extract model name from full ID (e.g., "minimax/MiniMax-M2" → "MiniMax-M2")
         let modelId = config.modelId.replacingOccurrences(of: "minimax/", with: "")
         
-        let miniMaxMessages = messages.map { message -> MiniMaxRequest.Message in
+        // Convert messages to Anthropic format
+        let anthropicMessages = messages.compactMap { message -> AnthropicRequestWithTools.Message? in
             switch message {
             case .user(let content, _):
-                return MiniMaxRequest.Message(role: "user", content: content)
+                return AnthropicRequestWithTools.Message(role: "user", content: content)
             case .assistant(let content, _, _):
-                return MiniMaxRequest.Message(role: "assistant", content: content)
-            case .toolResults(let results):
-                return MiniMaxRequest.Message(
-                    role: "tool",
-                    content: results.map { $0.content }.joined(separator: "\n")
-                )
+                return AnthropicRequestWithTools.Message(role: "assistant", content: content)
+            case .toolResults:
+                // Anthropic uses a different format for tool results
+                // For now, skip tool results or convert them appropriately
+                return nil
             }
         }
         
-        var request = MiniMaxRequest(
-            model: modelId,
-            messages: miniMaxMessages,
-            stream: true
-        )
-        
-        // Add system prompt if present
-        if !config.systemPrompt.isEmpty {
-            request.messages.insert(
-                MiniMaxRequest.Message(role: "system", content: config.systemPrompt),
-                at: 0
+        // Convert tools to Anthropic format if present
+        let anthropicTools: [AnthropicRequestWithTools.Tool]? = tools?.map { tool in
+            AnthropicRequestWithTools.Tool(
+                name: tool.namespacedName,
+                description: tool.description ?? "",
+                inputSchema: tool.inputSchema
             )
         }
         
-        // Add tools if present
-        if let tools = tools, !tools.isEmpty {
-            request.tools = tools.map { tool in
-                MiniMaxRequest.Tool(
-                    type: "function",
-                    function: MiniMaxRequest.Tool.FunctionDefinition(
-                        name: tool.namespacedName,
-                        description: tool.description ?? "",
-                        parameters: tool.inputSchema
-                    )
-                )
-            }
-        }
-        
-        return request
+        // Build Anthropic-compatible request
+        return AnthropicRequestWithTools(
+            model: modelId,
+            messages: anthropicMessages,
+            maxTokens: 4096,
+            stream: true,
+            system: config.systemPrompt.isEmpty ? nil : config.systemPrompt,
+            tools: anthropicTools
+        )
     }
 }
 
-// MARK: - MiniMax API Types
+// MARK: - Anthropic-Compatible API Types (for MiniMax)
 
-struct MiniMaxRequest: Codable {
+/// Extended AnthropicRequest to support tools
+struct AnthropicRequestWithTools: Codable {
     let model: String
-    var messages: [Message]
+    let messages: [Message]
+    let maxTokens: Int
     let stream: Bool
-    var tools: [Tool]?
+    let system: String?
+    let tools: [Tool]?
+    
+    enum CodingKeys: String, CodingKey {
+        case model, messages, stream, system, tools
+        case maxTokens = "max_tokens"
+    }
     
     struct Message: Codable {
         let role: String
@@ -220,50 +265,15 @@ struct MiniMaxRequest: Codable {
     }
     
     struct Tool: Codable {
-        let type: String
-        let function: FunctionDefinition
+        let name: String
+        let description: String
+        let inputSchema: [String: AnyCodable]
         
-        struct FunctionDefinition: Codable {
-            let name: String
-            let description: String
-            let parameters: [String: AnyCodable]
+        enum CodingKeys: String, CodingKey {
+            case name, description
+            case inputSchema = "input_schema"
         }
     }
 }
 
-struct MiniMaxStreamEvent: Codable {
-    let choices: [Choice]
-    
-    struct Choice: Codable {
-        let delta: Delta?
-        let finishReason: String?
-        
-        enum CodingKeys: String, CodingKey {
-            case delta
-            case finishReason = "finish_reason"
-        }
-        
-        struct Delta: Codable {
-            let content: String?
-            let toolCalls: [ToolCallDelta]?
-            
-            enum CodingKeys: String, CodingKey {
-                case content
-                case toolCalls = "tool_calls"
-            }
-            
-            struct ToolCallDelta: Codable {
-                let index: Int?
-                let id: String?
-                let type: String?
-                let function: FunctionDelta?
-                
-                struct FunctionDelta: Codable {
-                    let name: String?
-                    let arguments: String?
-                }
-            }
-        }
-    }
-}
 

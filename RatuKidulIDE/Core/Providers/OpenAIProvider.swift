@@ -131,18 +131,37 @@ actor OpenAIProvider: AIProvider {
                                         }
                                         
                                         if let argumentChunk = function.arguments {
+                                            // DEBUG: Log raw argument chunk
+                                            print("🔍 [OpenAIProvider] Raw argument chunk for \(toolCalls[index].name):")
+                                            print("   Chunk: \(argumentChunk)")
+                                            
                                             // Accumulate function arguments
                                             let currentArgs = toolCalls[index].arguments
                                             var newArgs = currentArgs
                                             
                                             // Parse JSON from argument chunk
-                                            if let argData = argumentChunk.data(using: .utf8),
-                                               let partialArgs = try? JSONDecoder().decode([String: AnyCodable].self, from: argData) {
-                                                // Merge partial args
+                                            if let argData = argumentChunk.data(using: .utf8) {
+                                                print("   Data length: \(argData.count) bytes")
+                                                
+                                                if let partialArgs = try? JSONDecoder().decode([String: AnyCodable].self, from: argData) {
+                                                    print("   ✅ Parsed \(partialArgs.count) arguments:")
                                                 for (key, value) in partialArgs {
+                                                        print("      - \(key): \(value.value)")
                                                     newArgs[key] = value
                                                 }
+                                                } else {
+                                                    print("   ❌ Failed to parse JSON. Raw string: \(argumentChunk)")
+                                                    // Try to parse as partial JSON (might be incomplete)
+                                                    if let jsonObject = try? JSONSerialization.jsonObject(with: argData) as? [String: Any] {
+                                                        print("   ⚠️  Parsed as NSDictionary: \(jsonObject)")
+                                                        for (key, value) in jsonObject {
+                                                            newArgs[key] = AnyCodable(value)
+                                                        }
+                                                    }
+                                                }
                                             }
+                                            
+                                            print("   📦 Final args count: \(newArgs.count)")
                                             
                                             toolCalls[index] = ToolCall(
                                                 id: toolCalls[index].id,
@@ -159,6 +178,17 @@ actor OpenAIProvider: AIProvider {
                     if choice.finishReason == "tool_calls" {
                         // Filter out empty tool calls
                         let validToolCalls = toolCalls.filter { !$0.id.isEmpty && !$0.name.isEmpty }
+                        
+                        // DEBUG: Log completed tool calls
+                        print("🔧 [OpenAIProvider] Tool calls completed:")
+                        for (idx, call) in validToolCalls.enumerated() {
+                            print("   [\(idx)] \(call.name) (id: \(call.id))")
+                            print("      Arguments (\(call.arguments.count)):")
+                            for (key, value) in call.arguments {
+                                print("         \(key): \(value.value)")
+                            }
+                        }
+                        
                         await onComplete(fullText, validToolCalls.isEmpty ? nil : validToolCalls)
                         return
                     }

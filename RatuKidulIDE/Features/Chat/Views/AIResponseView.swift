@@ -77,7 +77,7 @@ struct AIResponseView: View {
                     case .streaming:
                         VStack(alignment: .leading, spacing: 8) {
                             if !message.text.isEmpty {
-                                MarkdownText(message.text)
+                                MarkdownRenderedText(markdown: message.text)
                             }
                             StreamingIndicator()
                         }
@@ -86,9 +86,9 @@ struct AIResponseView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             if shouldShowCollapseButton && !isExpanded {
                                 // Show truncated content
-                                MarkdownText(String(message.text.prefix(collapseThreshold)) + "...")
+                                MarkdownRenderedText(markdown: String(message.text.prefix(collapseThreshold)) + "...")
                             } else {
-                                MarkdownText(message.text)
+                        MarkdownRenderedText(markdown: message.text)
                             }
                             
                             // Collapse/Expand button for long responses
@@ -113,7 +113,7 @@ struct AIResponseView: View {
                     case .error:
                         VStack(alignment: .leading, spacing: 8) {
                             if !message.text.isEmpty {
-                                MarkdownText(message.text)
+                                MarkdownRenderedText(markdown: message.text)
                             }
                             
                             HStack(spacing: 6) {
@@ -131,7 +131,7 @@ struct AIResponseView: View {
                     case .cancelled:
                         VStack(alignment: .leading, spacing: 8) {
                             if !message.text.isEmpty {
-                                MarkdownText(message.text)
+                                MarkdownRenderedText(markdown: message.text)
                             }
                             
                             HStack(spacing: 6) {
@@ -204,24 +204,7 @@ struct StreamingIndicator: View {
 
 // MARK: - Markdown Text View
 
-struct MarkdownText: View {
-    let text: String
-    
-    @AppStorage("chatFontSize") private var chatFontSize: Double = 14
-    
-    init(_ text: String) {
-        self.text = text
-    }
-    
-    var body: some View {
-        // For now, simple text rendering
-        // TODO: Add proper markdown rendering with code highlighting
-        Text(text)
-            .font(.system(size: chatFontSize))
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
+// Markdown rendering is implemented by `MarkdownRenderedText` (swift-markdown based).
 
 // MARK: - Preview
 

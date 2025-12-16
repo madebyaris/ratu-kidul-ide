@@ -68,6 +68,17 @@ final class ChatViewModel {
         messageSets.map { ConversationTurn(messageSet: $0) }
     }
     
+    // Agent state for tool execution
+    var agentState: AgentState = .idle
+    var currentToolExecution: ToolCall?
+    var toolExecutionHistory: [ToolExecutionRecord] = []
+    
+    /// Whether tools are enabled for this chat
+    var toolsEnabled: Bool = true
+    
+    /// Project path for tool execution
+    var projectPath: String?
+    
     // MARK: - Private Properties
     private let chatId: String
     private let modelContext: ModelContext
@@ -76,6 +87,8 @@ final class ChatViewModel {
     private let summaryService = SummaryService.shared
     private let tokenCounter = TokenCounter.shared
     private let keychain = KeychainService.shared
+    private let agentController = AgentController()
+    private let toolRegistry = ToolRegistry.shared
     
     private var chat: Chat?
     
@@ -91,6 +104,12 @@ final class ChatViewModel {
         self.modelContext = modelContext
     }
     
+    /// Set project path for tool execution
+    func setProjectPath(_ path: String) {
+        projectPath = path
+        agentController.projectPath = path
+    }
+    
     // MARK: - Public Methods
     
     /// Load chat with pagination - only loads last N messages initially
@@ -100,6 +119,14 @@ final class ChatViewModel {
             predicate: #Predicate { $0.id == chatId }
         )
         chat = try? modelContext.fetch(chatDescriptor).first
+
+        // Set project root for tools ASAP (required for sandboxed tool access)
+        if let projectRoot = chat?.project?.path, !projectRoot.isEmpty {
+            setProjectPath(projectRoot)
+        } else {
+            // Helpful debug when tools are blocked
+            print("⚠️ [ChatViewModel] No project path found for chat \(chatId). Tools will be disabled until a project is linked.")
+        }
         
         // First, get total count of message sets
         let countDescriptor = FetchDescriptor<MessageSet>(
@@ -313,7 +340,7 @@ final class ChatViewModel {
         guard let chat = chat else { return }
         
         // Build optimized context using all messages
-        let builtContext = await contextBuilder.buildContext(
+        var builtContext = await contextBuilder.buildContext(
             chat: chat,
             messageSets: allMessageSetsForContext,
             currentInput: userMessage,
@@ -321,11 +348,30 @@ final class ChatViewModel {
             modelConfig: modelConfig
         )
         
+        // Add system prompt with tool instructions if tools are enabled
+        if toolsEnabled {
+            let systemPrompt = agentController.generateSystemPrompt(
+                projectName: chat.project?.name,
+                projectPath: projectPath
+            )
+            // Prepend system message to context
+            builtContext = BuiltContext(
+                messages: [.user(content: "[System]: \(systemPrompt)", attachments: [])] + builtContext.messages,
+                tokenUsage: builtContext.tokenUsage,
+                truncatedFiles: builtContext.truncatedFiles,
+                summarizedFiles: builtContext.summarizedFiles,
+                excludedMessages: builtContext.excludedMessages
+            )
+        }
+        
+        // Get tools if enabled
+        let tools: [UserTool]? = toolsEnabled ? toolRegistry.getAllTools() : nil
+        
         do {
             try await providerRegistry.streamResponse(
                 config: modelConfig,
                 messages: builtContext.messages,
-                tools: nil,
+                tools: tools,
                 onChunk: { chunk in
                     Task { @MainActor in
                         message.text += chunk
@@ -334,27 +380,63 @@ final class ChatViewModel {
                     }
                 },
                 onToolCall: { toolCall in
-                    // Handle tool calls
+                    Task { @MainActor in
+                        self.currentToolExecution = toolCall
+                        self.agentState = .executingTools
+                    }
                 },
                 onComplete: { fullText, toolCalls in
                     Task { @MainActor in
-                        message.text = fullText
-                        message.state = .complete
-                        // Cache token count for this response
-                        message.tokenCount = await self.tokenCounter.estimateTokens(fullText)
-                        if let toolCalls = toolCalls {
-                            message.toolCalls = try? JSONEncoder().encode(toolCalls)
-                        }
-                        try? self.modelContext.save()
+                        // DEBUG: Log received tool calls
+                        var finalToolCalls = toolCalls
                         
-                        // Recalculate context after AI response completes
-                        await self.recalculateContextUsage()
+                        // If no native tool calls but tools are enabled, try parsing from text
+                        if (toolCalls == nil || toolCalls?.isEmpty == true) && self.toolsEnabled {
+                            if let parsedTools = TextToolParser.shared.parse(fullText) {
+                                print("📝 [ChatViewModel] Parsed \(parsedTools.count) tool call(s) from text output")
+                                finalToolCalls = parsedTools
+                            }
+                        }
+                        
+                        if let toolCalls = finalToolCalls, !toolCalls.isEmpty {
+                            print("📥 [ChatViewModel] Received \(toolCalls.count) tool call(s) from AI:")
+                            for (idx, call) in toolCalls.enumerated() {
+                                print("   [\(idx)] Tool: \(call.name)")
+                                print("      ID: \(call.id)")
+                                print("      Arguments: \(call.arguments.count) items")
+                                for (key, value) in call.arguments {
+                                    print("         \(key): \(String(describing: value.value))")
+                                }
+                            }
+                        }
+                        
+                        // Handle tool calls if present
+                        if let toolCalls = finalToolCalls, !toolCalls.isEmpty, self.toolsEnabled {
+                            await self.handleToolCalls(
+                                toolCalls,
+                                message: message,
+                                modelConfig: modelConfig,
+                                initiatingUserMessage: userMessage
+                            )
+                        } else {
+                            message.text = fullText
+                            message.state = .complete
+                            message.tokenCount = await self.tokenCounter.estimateTokens(fullText)
+                            try? self.modelContext.save()
+                            
+                            self.agentState = .idle
+                            self.currentToolExecution = nil
+                            
+                            // Recalculate context after AI response completes
+                            await self.recalculateContextUsage()
+                        }
                     }
                 },
                 onError: { error in
                     Task { @MainActor in
                         message.state = .error
                         message.errorMessage = error.localizedDescription
+                        self.agentState = .error(error.localizedDescription)
                         try? self.modelContext.save()
                     }
                 }
@@ -362,8 +444,221 @@ final class ChatViewModel {
         } catch {
             message.state = .error
             message.errorMessage = error.localizedDescription
+            agentState = .error(error.localizedDescription)
             try? modelContext.save()
         }
+    }
+    
+    // MARK: - Tool Handling
+    
+    /// Handle tool calls from the AI
+    private func handleToolCalls(
+        _ toolCalls: [ToolCall],
+        message: Message,
+        modelConfig: ModelConfig,
+        initiatingUserMessage: String
+    ) async {
+        print("🛠️ [ChatViewModel] handleToolCalls called with \(toolCalls.count) tool call(s)")
+        
+        agentState = .executingTools
+        
+        var toolResultsText = ""
+        var allToolResults: [ToolResult] = []
+        
+        for (idx, toolCall) in toolCalls.enumerated() {
+            print("   [\(idx)] Executing: \(toolCall.name)")
+            print("      ID: \(toolCall.id)")
+            print("      Arguments before execution: \(toolCall.arguments)")
+            
+            currentToolExecution = toolCall
+            
+            // Execute the tool
+            let result = await ToolExecutor.shared.execute(toolCall: toolCall)
+            
+            print("      Result: success=\(result.success), error=\(result.error ?? "none")")
+            
+            // Record execution
+            let record = ToolExecutionRecord(
+                toolCall: toolCall,
+                result: result,
+                timestamp: Date()
+            )
+            toolExecutionHistory.append(record)
+            
+            // Format result for display
+            let toolResultDisplay = formatToolResult(toolCall: toolCall, result: result)
+            toolResultsText += toolResultDisplay + "\n\n"
+            
+            allToolResults.append(result.toToolResult(id: toolCall.id))
+        }
+        
+        currentToolExecution = nil
+        
+        // Update message with tool results
+        message.text += "\n\n" + toolResultsText
+        
+        // Store tool calls in message
+        message.toolCalls = try? JSONEncoder().encode(toolCalls)
+
+        // Only continue if the user explicitly asked to continue the previous chain.
+        if userExplicitlyWantsToContinue(initiatingUserMessage) {
+            await continueWithToolResults(
+                toolResults: allToolResults,
+                message: message,
+                modelConfig: modelConfig
+            )
+        } else {
+            // Stop after executing tools; user can type "continue" to proceed.
+            message.state = .complete
+            message.tokenCount = await tokenCounter.estimateTokens(message.text)
+            try? modelContext.save()
+
+            agentState = .idle
+            currentToolExecution = nil
+            await recalculateContextUsage()
+        }
+    }
+
+    private func userExplicitlyWantsToContinue(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return false }
+        let keywords = [
+            "continue",
+            "go on",
+            "next",
+            "proceed",
+            "keep going",
+            "carry on",
+            "run it",
+            "do it",
+            "yes"
+        ]
+        return keywords.contains(where: { normalized == $0 || normalized.contains($0) })
+    }
+    
+    /// Continue the conversation after tool execution
+    private func continueWithToolResults(toolResults: [ToolResult], message: Message, modelConfig: ModelConfig) async {
+        guard let chat = chat else { return }
+        
+        agentState = .running
+        
+        // Build context with all previous messages
+        var builtContext = await contextBuilder.buildContext(
+            chat: chat,
+            messageSets: allMessageSetsForContext,
+            currentInput: "",
+            attachments: [],
+            modelConfig: modelConfig
+        )
+        
+        var messages = builtContext.messages
+        
+        // Add system prompt if tools are enabled
+        if toolsEnabled {
+            let systemPrompt = agentController.generateSystemPrompt(
+                projectName: chat.project?.name,
+                projectPath: projectPath
+            )
+            // Prepend system message if not already present
+            if !messages.contains(where: { 
+                if case .user(let content, _) = $0 {
+                    return content.contains("[System]:")
+                }
+                return false
+            }) {
+                messages.insert(.user(content: "[System]: \(systemPrompt)", attachments: []), at: 0)
+            }
+        }
+        
+        // Find the last assistant message with tool calls and update it
+        // If not found, add the assistant message with tool calls
+        var foundAssistantMessage = false
+        for (index, msg) in messages.enumerated().reversed() {
+            if case .assistant(let content, let model, let calls) = msg, model == modelConfig.modelId {
+                // Update this message to include tool calls
+                messages[index] = .assistant(content: message.text, model: modelConfig.modelId, toolCalls: [])
+                foundAssistantMessage = true
+                break
+            }
+        }
+        
+        if !foundAssistantMessage {
+            // Add the assistant message with tool calls
+            messages.append(.assistant(content: message.text, model: modelConfig.modelId, toolCalls: []))
+        }
+        
+        // Add tool results
+        messages.append(.toolResults(toolResults))
+        
+        // Get continuation from AI
+        do {
+            try await providerRegistry.streamResponse(
+                config: modelConfig,
+                messages: messages,
+                tools: toolsEnabled ? toolRegistry.getAllTools() : nil,
+                onChunk: { chunk in
+                    Task { @MainActor in
+                        message.text += chunk
+                        message.state = .streaming
+                        try? self.modelContext.save()
+                    }
+                },
+                onToolCall: { toolCall in
+                    Task { @MainActor in
+                        self.currentToolExecution = toolCall
+                    }
+                },
+                onComplete: { fullText, moreCalls in
+                    Task { @MainActor in
+                        if let moreCalls = moreCalls, !moreCalls.isEmpty {
+                            // More tool calls - continue the loop
+                            await self.handleToolCalls(
+                                moreCalls,
+                                message: message,
+                                modelConfig: modelConfig,
+                                initiatingUserMessage: "continue"
+                            )
+                        } else {
+                            // Done with tool calls
+                            message.state = .complete
+                            message.tokenCount = await self.tokenCounter.estimateTokens(message.text)
+                            try? self.modelContext.save()
+                            
+                            self.agentState = .idle
+                            self.currentToolExecution = nil
+                            
+                            await self.recalculateContextUsage()
+                        }
+                    }
+                },
+                onError: { error in
+                    Task { @MainActor in
+                        message.state = .error
+                        message.errorMessage = error.localizedDescription
+                        self.agentState = .error(error.localizedDescription)
+                        try? self.modelContext.save()
+                    }
+                }
+            )
+        } catch {
+            message.state = .error
+            message.errorMessage = error.localizedDescription
+            agentState = .error(error.localizedDescription)
+            try? modelContext.save()
+        }
+    }
+    
+    /// Format tool result for display
+    private func formatToolResult(toolCall: ToolCall, result: ToolExecutionResult) -> String {
+        var output = "🔧 **\(toolCall.name)**\n"
+        
+        if result.success {
+            output += "```\n\(result.output)\n```"
+        } else {
+            output += "❌ Error: \(result.error ?? "Unknown error")"
+        }
+        
+        return output
     }
     
     private func loadDefaultModel() async {
