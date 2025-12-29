@@ -1,0 +1,7 @@
+Hi! Let me check what your **minimax-test** project is about by exploring the project structure!
+
+
+🔧 **file_list_directory">
+<parameter name="path">/Users/aris/local-document/minimax-work/minimax-test</parameter>
+</invoke>
+</tool_call>

@@ -71,10 +71,20 @@ final class TextToolParser {
         
         // Pattern 1: Exact format with closing tags
         // 🔧 **tool_name**>\n<parameter>...</parameter>\n</invoke>\n</tool_call>
-        let pattern1 = #"🔧\s*\*\*([^*]+)\*\*>\s*\n(.*?)</invoke>\s*</tool_call>"#
+        // Note: The format can have newlines between elements, so we use .dotMatchesLineSeparators
+        let pattern1 = #"🔧\s*\*\*([^*]+)\*\*>\s*[\r\n]+(.*?)</invoke>\s*[\r\n]+\s*</tool_call>"#
         if let regex1 = try? NSRegularExpression(pattern: pattern1, options: [.dotMatchesLineSeparators]) {
             let matches = regex1.matches(in: text, options: [], range: NSRange(text.startIndex..., in: text))
             print("🔍 [TextToolParser] Pattern 1 (with > and closing tags) found \(matches.count) match(es)")
+            
+            // Debug: Show what we're trying to match
+            if matches.isEmpty {
+                // Try to find where the pattern fails
+                if let toolStart = text.range(of: "🔧") {
+                    let afterTool = String(text[toolStart.upperBound...])
+                    print("🔍 [TextToolParser] Debug - Text after 🔧: \(String(afterTool.prefix(200)))")
+                }
+            }
             
             for match in matches {
                 guard let toolNameRange = Range(match.range(at: 1), in: text),
@@ -194,13 +204,57 @@ final class TextToolParser {
             print("⚠️ [TextToolParser] Trying simple extraction pattern...")
             if let toolStart = text.range(of: "🔧"),
                let toolEnd = text.range(of: "</tool_call>", range: toolStart.upperBound..<text.endIndex) {
-                let toolCallText = String(text[toolStart.upperBound..<toolEnd.lowerBound])
+                var toolCallText = String(text[toolStart.upperBound..<toolEnd.lowerBound])
                 
-                // Extract tool name
-                if let nameStart = toolCallText.range(of: "**"),
-                   let nameEnd = toolCallText.range(of: "**", range: nameStart.upperBound..<toolCallText.endIndex) {
-                    let toolName = String(toolCallText[nameStart.upperBound..<nameEnd.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-                    let argsText = String(toolCallText[nameEnd.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                print("🔍 [TextToolParser] Pattern 4 - Extracted tool call text (raw): \(String(toolCallText.prefix(150)))")
+                
+                // Clean up the text first (remove leading/trailing whitespace)
+                toolCallText = toolCallText.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                print("🔍 [TextToolParser] Pattern 4 - After trim: \(String(toolCallText.prefix(150)))")
+                
+                // Extract tool name - handle two formats:
+                // Format 1: **tool_name**> (with second **)
+                // Format 2: **tool_name"> (no second **, just >)
+                var toolName: String?
+                var argsTextStart: String.Index?
+                
+                if let nameStart = toolCallText.range(of: "**") {
+                    // Try Format 1: Look for second **
+                    let searchStart = toolCallText.index(nameStart.upperBound, offsetBy: 0)
+                    let searchRange = searchStart..<toolCallText.endIndex
+                    
+                    if let nameEnd = toolCallText.range(of: "**", range: searchRange) {
+                        // Format 1: **tool_name**>
+                        toolName = String(toolCallText[nameStart.upperBound..<nameEnd.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                        argsTextStart = nameEnd.upperBound
+                        print("🔍 [TextToolParser] Pattern 4 - Found tool name (format 1): \(toolName!)")
+                    } else {
+                        // Format 2: **tool_name"> (no second **, has quote before >)
+                        // Try to find "> first, then fall back to just >
+                        if let quoteGtIndex = toolCallText.range(of: "\">", range: nameStart.upperBound..<toolCallText.endIndex) {
+                            toolName = String(toolCallText[nameStart.upperBound..<quoteGtIndex.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                            argsTextStart = toolCallText.index(quoteGtIndex.upperBound, offsetBy: 0)
+                            print("🔍 [TextToolParser] Pattern 4 - Found tool name (format 2 with quote): \(toolName!)")
+                        } else if let gtIndex = toolCallText.range(of: ">", range: nameStart.upperBound..<toolCallText.endIndex) {
+                            toolName = String(toolCallText[nameStart.upperBound..<gtIndex.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                            argsTextStart = toolCallText.index(gtIndex.upperBound, offsetBy: 0)
+                            print("🔍 [TextToolParser] Pattern 4 - Found tool name (format 2 without quote): \(toolName!)")
+                        }
+                    }
+                }
+                
+                if let toolName = toolName, let argsStart = argsTextStart {
+                    // Get everything after the tool name marker
+                    var argsText = String(toolCallText[argsStart...])
+                    
+                    // Remove closing tags
+                    argsText = argsText
+                        .replacingOccurrences(of: "</invoke>", with: "")
+                        .replacingOccurrences(of: "</tool_call>", with: "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                        
+                    print("🔍 [TextToolParser] Pattern 4 - Tool: \(toolName), Args: \(String(argsText.prefix(100)))")
                     
                     let normalizedToolName = normalizeToolName(toolName)
                     
@@ -212,7 +266,24 @@ final class TextToolParser {
                             arguments: args
                         ))
                         return tools
+                    } else {
+                        // Try simple argument parsing
+                        if let args = parseSimpleArguments(argsText, toolName: normalizedToolName) {
+                            print("✅ [TextToolParser] Parsed tool (simple extraction, simple args): \(normalizedToolName) with \(args.count) parameters")
+                            tools.append(ToolCall(
+                                id: UUID().uuidString,
+                                name: normalizedToolName,
+                                arguments: args
+                            ))
+                            return tools
+                        } else {
+                            print("⚠️ [TextToolParser] Pattern 4 - Failed to parse args for \(toolName)")
+                            print("   Args text: \(argsText)")
+                        }
                     }
+                } else {
+                    print("⚠️ [TextToolParser] Pattern 4 - Could not extract tool name")
+                    print("   Text: \(String(toolCallText.prefix(100)))")
                 }
             }
         }
@@ -253,7 +324,7 @@ final class TextToolParser {
             }
         }
         
-        // Final fallback: Direct string search
+        // Final fallback: Direct string search with improved parsing
         if tools.isEmpty && text.contains("🔧") && text.contains("<parameter") {
             print("⚠️ [TextToolParser] Trying direct string extraction...")
             // Find all 🔧 markers
@@ -267,19 +338,35 @@ final class TextToolParser {
                    let nameEnd = remainingAfterMarker.range(of: "**", range: nameStart.upperBound..<remainingAfterMarker.endIndex) {
                     let toolName = String(remainingAfterMarker[nameStart.upperBound..<nameEnd.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
                     
-                    // Find parameters after the tool name
-                    let afterName = remainingAfterMarker.index(nameEnd.upperBound, offsetBy: 0)
-                    let paramsText = String(remainingAfterMarker[afterName...])
+                    // Find parameters after the tool name (skip the > character and any whitespace)
+                    let afterNameEnd = remainingAfterMarker.index(nameEnd.upperBound, offsetBy: 0)
+                    var paramsText = String(remainingAfterMarker[afterNameEnd...])
+                    
+                    // Skip past the > character if present
+                    if let gtIndex = paramsText.firstIndex(of: ">") {
+                        paramsText = String(paramsText[paramsText.index(after: gtIndex)...])
+                    }
                     
                     // Extract until </tool_call> if present
                     let finalParamsText: String
                     if let toolCallEnd = paramsText.range(of: "</tool_call>") {
                         finalParamsText = String(paramsText[..<toolCallEnd.lowerBound])
+                    } else if let invokeEnd = paramsText.range(of: "</invoke>") {
+                        // Sometimes </invoke> comes before </tool_call>
+                        finalParamsText = String(paramsText[..<invokeEnd.lowerBound])
                     } else {
                         finalParamsText = paramsText
                     }
                     
-                    if let args = parseXMLParameters(finalParamsText) {
+                    // Clean up the params text
+                    let cleanedParams = finalParamsText
+                        .replacingOccurrences(of: "</invoke>", with: "")
+                        .replacingOccurrences(of: "</tool_call>", with: "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    
+                    print("🔍 [TextToolParser] Direct extraction - Tool: \(toolName), Params text: \(String(cleanedParams.prefix(100)))")
+                    
+                    if let args = parseXMLParameters(cleanedParams) {
                         let normalizedToolName = normalizeToolName(toolName)
                         print("✅ [TextToolParser] Parsed tool via direct extraction: \(normalizedToolName) with \(args.count) parameters")
                         tools.append(ToolCall(
@@ -287,6 +374,17 @@ final class TextToolParser {
                             name: normalizedToolName,
                             arguments: args
                         ))
+                    } else {
+                        // Try simple argument parsing as fallback
+                        if let args = parseSimpleArguments(cleanedParams, toolName: toolName) {
+                            let normalizedToolName = normalizeToolName(toolName)
+                            print("✅ [TextToolParser] Parsed tool via direct extraction (simple): \(normalizedToolName) with \(args.count) parameters")
+                            tools.append(ToolCall(
+                                id: UUID().uuidString,
+                                name: normalizedToolName,
+                                arguments: args
+                            ))
+                        }
                     }
                 }
                 
@@ -430,6 +528,35 @@ final class TextToolParser {
     }
     
     private func parseXMLParameters(_ text: String) -> [String: AnyCodable]? {
+        // Wrap the text in a root element to make it valid XML
+        // This handles cases where we have multiple <parameter> tags
+        let xmlText: String
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("<") {
+            // Already looks like XML, wrap it
+            xmlText = "<root>\(text)</root>"
+        } else {
+            // Try to extract XML-like structures
+            xmlText = "<root>\(text)</root>"
+        }
+        
+        guard let xmlData = xmlText.data(using: .utf8) else {
+            return nil
+        }
+        
+        let parser = XMLParser(data: xmlData)
+        let delegate = ParameterXMLDelegate()
+        parser.delegate = delegate
+        
+        if parser.parse() {
+            return delegate.parameters.isEmpty ? nil : delegate.parameters
+        } else {
+            // XMLParser failed, fall back to regex for malformed XML
+            return parseXMLParametersRegex(text)
+        }
+    }
+    
+    /// Fallback regex-based parser for malformed XML
+    private func parseXMLParametersRegex(_ text: String) -> [String: AnyCodable]? {
         var args: [String: AnyCodable] = [:]
         
         // Pattern: <parameter name="key">value</parameter>
@@ -501,5 +628,46 @@ private struct StandardToolCall: Codable {
 private struct AlternativeToolCall: Codable {
     let tool: String
     let args: [String: AnyCodable]
+}
+
+// MARK: - XML Parser Delegate
+
+private class ParameterXMLDelegate: NSObject, XMLParserDelegate {
+    var parameters: [String: AnyCodable] = [:]
+    private var currentElement: String?
+    private var currentParameterName: String?
+    private var currentValue: String = ""
+    
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
+        currentElement = elementName
+        
+        if elementName == "parameter" {
+            // Extract the name attribute
+            currentParameterName = attributeDict["name"]
+            currentValue = ""
+        }
+    }
+    
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        if currentElement == "parameter" {
+            currentValue += string
+        }
+    }
+    
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        if elementName == "parameter", let name = currentParameterName {
+            let trimmedValue = currentValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedValue.isEmpty {
+                parameters[name] = AnyCodable(trimmedValue)
+            }
+            currentParameterName = nil
+            currentValue = ""
+        }
+        currentElement = nil
+    }
+    
+    func parser(_ parser: XMLParser, parseErrorOccurred parseError: Error) {
+        // Silently handle parse errors - we'll fall back to regex
+    }
 }
 

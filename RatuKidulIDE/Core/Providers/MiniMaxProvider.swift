@@ -71,6 +71,8 @@ actor MiniMaxProvider: AIProvider {
         
         var fullText = ""
         var toolCalls: [ToolCall] = []
+        var toolCallPartialJSON: [String: String] = [:] // Track partial JSON per tool ID
+        var indexToToolCall: [Int: Int] = [:] // Map content block index to toolCalls array index
         
         for try await line in bytes.lines {
             guard line.hasPrefix("data: ") else { continue }
@@ -91,57 +93,95 @@ actor MiniMaxProvider: AIProvider {
             }
             
             do {
-                // Try to decode as Anthropic stream event
-                let eventDict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-                guard let eventType = eventDict?["type"] as? String else { continue }
+                // Decode as Anthropic stream event
+                let decoder = JSONDecoder()
+                let event = try decoder.decode(AnthropicStreamEvent.self, from: data)
                 
-                switch eventType {
-                case "content_block_delta":
-                    // Handle text content delta
-                    if let delta = eventDict?["delta"] as? [String: Any],
-                       let text = delta["text"] as? String {
-                        fullText += text
-                        onChunk(text)
+                switch event.type {
+                case "content_block_start":
+                    // Tool use block started
+                    if let contentBlock = event.contentBlock,
+                       contentBlock.type == "tool_use",
+                       let toolId = contentBlock.toolUse?.id,
+                       let toolName = contentBlock.toolUse?.name,
+                       let index = event.index {
+                        // Create new tool call
+                        let toolCallIndex = toolCalls.count
+                        let newToolCall = ToolCall(
+                            id: toolId,
+                            name: toolName,
+                            arguments: [:]
+                        )
+                        toolCalls.append(newToolCall)
+                        toolCallPartialJSON[toolId] = "" // Initialize partial JSON accumulator
+                        indexToToolCall[index] = toolCallIndex // Map content block index to tool call index
+                        print("🔧 [MiniMaxProvider] Tool call started: \(toolName) (id: \(toolId), content_block_index: \(index), tool_call_index: \(toolCallIndex))")
+                        onToolCall(newToolCall) // Notify immediately
+                    } else {
+                        // Debug: log what we got
+                        if let contentBlock = event.contentBlock {
+                            print("🔍 [MiniMaxProvider] content_block_start - type: \(contentBlock.type ?? "nil"), index: \(event.index ?? -1)")
+                        }
                     }
                     
-                    // Handle tool use delta (arguments being streamed)
-                    if let delta = eventDict?["delta"] as? [String: Any],
-                       let toolUse = delta["tool_use"] as? [String: Any] {
-                        let toolId = toolUse["id"] as? String ?? ""
-                        let inputChunk = toolUse["input"] as? String ?? ""
+                case "content_block_delta":
+                    if let delta = event.delta {
+                        // Handle text content delta
+                        if let text = delta.text {
+                            fullText += text
+                            onChunk(text)
+                        }
                         
-                        // Find or create tool call
-                        if let index = toolCalls.firstIndex(where: { $0.id == toolId }) {
-                            // Accumulate arguments
-                            var currentArgs = toolCalls[index].arguments
-                            if let argData = inputChunk.data(using: .utf8),
-                               let partialArgs = try? JSONDecoder().decode([String: AnyCodable].self, from: argData) {
-                                // Merge partial args
-                                for (key, value) in partialArgs {
-                                    currentArgs[key] = value
-                                }
-                                toolCalls[index] = ToolCall(
-                                    id: toolCalls[index].id,
-                                    name: toolCalls[index].name,
-                                    arguments: currentArgs
-                                )
+                        // Handle tool use delta - arguments streamed as partial JSON
+                        if delta.type == "input_json_delta",
+                           let partialJSON = delta.partialJSON,
+                           let contentBlockIndex = event.index {
+                            // Map content block index to tool call index
+                            if let toolCallIndex = indexToToolCall[contentBlockIndex],
+                               toolCallIndex < toolCalls.count {
+                                let toolId = toolCalls[toolCallIndex].id
+                                // Accumulate partial JSON
+                                toolCallPartialJSON[toolId, default: ""] += partialJSON
+                                print("📝 [MiniMaxProvider] Accumulating JSON for tool \(toolCalls[toolCallIndex].name) (content_block_index: \(contentBlockIndex), tool_call_index: \(toolCallIndex), chunk length: \(partialJSON.count))")
+                            } else {
+                                print("⚠️ [MiniMaxProvider] No tool call mapped for content_block_index \(contentBlockIndex) (have \(toolCalls.count) tool calls)")
                             }
                         }
                     }
                     
-                case "content_block_start":
-                    // Tool use block started
-                    if let contentBlock = eventDict?["content_block"] as? [String: Any],
-                       let toolUse = contentBlock["tool_use"] as? [String: Any],
-                       let toolId = toolUse["id"] as? String,
-                       let toolName = toolUse["name"] as? String {
-                        // Create new tool call
-                        toolCalls.append(ToolCall(
-                            id: toolId,
-                            name: toolName,
-                            arguments: [:]
-                        ))
-                        print("🔧 [MiniMaxProvider] Tool call started: \(toolName) (id: \(toolId))")
+                case "content_block_stop":
+                    // Finalize tool call arguments when block stops
+                    if let contentBlockIndex = event.index {
+                        // Map content block index to tool call index
+                        if let toolCallIndex = indexToToolCall[contentBlockIndex],
+                           toolCallIndex < toolCalls.count {
+                            let toolId = toolCalls[toolCallIndex].id
+                            if let accumulatedJSON = toolCallPartialJSON[toolId],
+                               !accumulatedJSON.isEmpty {
+                                print("🔍 [MiniMaxProvider] Finalizing tool call \(toolCalls[toolCallIndex].name) (content_block_index: \(contentBlockIndex), tool_call_index: \(toolCallIndex), JSON length: \(accumulatedJSON.count))")
+                                // Try to parse the complete JSON
+                                if let jsonData = accumulatedJSON.data(using: .utf8),
+                                   let args = try? decoder.decode([String: AnyCodable].self, from: jsonData) {
+                                    toolCalls[toolCallIndex] = ToolCall(
+                                        id: toolCalls[toolCallIndex].id,
+                                        name: toolCalls[toolCallIndex].name,
+                                        arguments: args
+                                    )
+                                    print("✅ [MiniMaxProvider] Parsed arguments for \(toolCalls[toolCallIndex].name): \(args.count) params")
+                                    for (key, value) in args {
+                                        print("   - \(key): \(String(describing: value.value).prefix(50))")
+                                    }
+                                } else {
+                                    print("⚠️ [MiniMaxProvider] Failed to parse JSON for \(toolCalls[toolCallIndex].name)")
+                                    print("   JSON preview: \(String(accumulatedJSON.prefix(200)))")
+                                }
+                                toolCallPartialJSON.removeValue(forKey: toolId)
+                            } else {
+                                print("⚠️ [MiniMaxProvider] content_block_stop for content_block_index \(contentBlockIndex) but no accumulated JSON")
+                            }
+                        } else {
+                            print("⚠️ [MiniMaxProvider] content_block_stop content_block_index \(contentBlockIndex) not mapped to any tool call (have \(toolCalls.count) tool calls)")
+                        }
                     }
                     
                 case "message_stop":
@@ -149,7 +189,7 @@ actor MiniMaxProvider: AIProvider {
                     let validToolCalls = toolCalls.filter { !$0.id.isEmpty && !$0.name.isEmpty }
                     
                     if !validToolCalls.isEmpty {
-                        print("🔧 [MiniMaxProvider] Tool calls completed (Anthropic format):")
+                        print("🔧 [MiniMaxProvider] Tool calls completed:")
                         for (idx, call) in validToolCalls.enumerated() {
                             print("   [\(idx)] \(call.name) (id: \(call.id))")
                             print("      Arguments (\(call.arguments.count)):")
@@ -168,6 +208,9 @@ actor MiniMaxProvider: AIProvider {
             } catch {
                 // Skip malformed events
                 print("⚠️ [MiniMaxProvider] Failed to parse event: \(error)")
+                if let jsonStr = String(data: data, encoding: .utf8) {
+                    print("   Raw event: \(jsonStr)")
+                }
                 continue
             }
         }
@@ -208,17 +251,54 @@ actor MiniMaxProvider: AIProvider {
         // Extract model name from full ID (e.g., "minimax/MiniMax-M2" → "MiniMax-M2")
         let modelId = config.modelId.replacingOccurrences(of: "minimax/", with: "")
         
-        // Convert messages to Anthropic format
-        let anthropicMessages = messages.compactMap { message -> AnthropicRequestWithTools.Message? in
+        // Convert messages to Anthropic format with content blocks
+        var anthropicMessages: [AnthropicRequestWithTools.Message] = []
+        
+        for message in messages {
             switch message {
             case .user(let content, _):
-                return AnthropicRequestWithTools.Message(role: "user", content: content)
-            case .assistant(let content, _, _):
-                return AnthropicRequestWithTools.Message(role: "assistant", content: content)
-            case .toolResults:
-                // Anthropic uses a different format for tool results
-                // For now, skip tool results or convert them appropriately
-                return nil
+                // User messages: content is array of text blocks
+                anthropicMessages.append(AnthropicRequestWithTools.Message(
+                    role: "user",
+                    content: [.text(content)]
+                ))
+                
+            case .assistant(let content, _, let toolCalls):
+                // Assistant messages: can have text and/or tool_use blocks
+                var contentBlocks: [AnthropicRequestWithTools.Message.ContentBlock] = []
+                
+                // Add text content if present
+                if !content.isEmpty {
+                    contentBlocks.append(.text(content))
+                }
+                
+                // Add tool_use blocks if present
+                for toolCall in toolCalls {
+                    contentBlocks.append(.toolUse(AnthropicRequestWithTools.Message.ContentBlock.ToolUse(
+                        id: toolCall.id,
+                        name: toolCall.name,
+                        input: toolCall.arguments
+                    )))
+                }
+                
+                anthropicMessages.append(AnthropicRequestWithTools.Message(
+                    role: "assistant",
+                    content: contentBlocks
+                ))
+                
+            case .toolResults(let results):
+                // Tool results: Anthropic sends these as user messages with tool_result blocks
+                var contentBlocks: [AnthropicRequestWithTools.Message.ContentBlock] = []
+                for result in results {
+                    contentBlocks.append(.toolResult(AnthropicRequestWithTools.Message.ContentBlock.ToolResult(
+                        toolUseId: result.id,
+                        content: result.content
+                    )))
+                }
+                anthropicMessages.append(AnthropicRequestWithTools.Message(
+                    role: "user",
+                    content: contentBlocks
+                ))
             }
         }
         
@@ -232,13 +312,17 @@ actor MiniMaxProvider: AIProvider {
         }
         
         // Build Anthropic-compatible request
+        // Set tool_choice to "any" if tools are provided to encourage tool usage
+        let toolChoice: AnthropicRequestWithTools.ToolChoice? = (anthropicTools != nil && !anthropicTools!.isEmpty) ? .any : nil
+        
         return AnthropicRequestWithTools(
             model: modelId,
             messages: anthropicMessages,
             maxTokens: 4096,
             stream: true,
             system: config.systemPrompt.isEmpty ? nil : config.systemPrompt,
-            tools: anthropicTools
+            tools: anthropicTools,
+            toolChoice: toolChoice
         )
     }
 }
@@ -253,15 +337,116 @@ struct AnthropicRequestWithTools: Codable {
     let stream: Bool
     let system: String?
     let tools: [Tool]?
+    let toolChoice: ToolChoice?
     
     enum CodingKeys: String, CodingKey {
         case model, messages, stream, system, tools
         case maxTokens = "max_tokens"
+        case toolChoice = "tool_choice"
+    }
+    
+    enum ToolChoice: Codable {
+        case auto
+        case any
+        case tool(name: String)
+        
+        enum CodingKeys: String, CodingKey {
+            case type, name
+        }
+        
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .auto:
+                try container.encode("auto", forKey: .type)
+            case .any:
+                try container.encode("any", forKey: .type)
+            case .tool(let name):
+                try container.encode("tool", forKey: .type)
+                try container.encode(name, forKey: .name)
+            }
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let type = try container.decode(String.self, forKey: .type)
+            switch type {
+            case "auto":
+                self = .auto
+            case "any":
+                self = .any
+            case "tool":
+                let name = try container.decode(String.self, forKey: .name)
+                self = .tool(name: name)
+            default:
+                self = .auto
+            }
+        }
     }
     
     struct Message: Codable {
         let role: String
-        let content: String
+        let content: [ContentBlock]
+        
+        enum ContentBlock: Codable {
+            case text(String)
+            case toolUse(ToolUse)
+            case toolResult(ToolResult)
+            
+            enum CodingKeys: String, CodingKey {
+                case type, text, id, name, input, toolUseId = "tool_use_id", content
+            }
+            
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                let type = try container.decode(String.self, forKey: .type)
+                
+                switch type {
+                case "text":
+                    self = .text(try container.decode(String.self, forKey: .text))
+                case "tool_use":
+                    let id = try container.decode(String.self, forKey: .id)
+                    let name = try container.decode(String.self, forKey: .name)
+                    let input = try container.decode([String: AnyCodable].self, forKey: .input)
+                    self = .toolUse(ToolUse(id: id, name: name, input: input))
+                case "tool_result":
+                    let toolUseId = try container.decode(String.self, forKey: .toolUseId)
+                    let content = try container.decode(String.self, forKey: .content)
+                    self = .toolResult(ToolResult(toolUseId: toolUseId, content: content))
+                default:
+                    throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "Unknown content block type: \(type)")
+                }
+            }
+            
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                switch self {
+                case .text(let text):
+                    try container.encode("text", forKey: .type)
+                    try container.encode(text, forKey: .text)
+                case .toolUse(let toolUse):
+                    try container.encode("tool_use", forKey: .type)
+                    try container.encode(toolUse.id, forKey: .id)
+                    try container.encode(toolUse.name, forKey: .name)
+                    try container.encode(toolUse.input, forKey: .input)
+                case .toolResult(let toolResult):
+                    try container.encode("tool_result", forKey: .type)
+                    try container.encode(toolResult.toolUseId, forKey: .toolUseId)
+                    try container.encode(toolResult.content, forKey: .content)
+                }
+            }
+            
+            struct ToolUse: Codable {
+                let id: String
+                let name: String
+                let input: [String: AnyCodable]
+            }
+            
+            struct ToolResult: Codable {
+                let toolUseId: String
+                let content: String
+            }
+        }
     }
     
     struct Tool: Codable {
@@ -275,5 +460,4 @@ struct AnthropicRequestWithTools: Codable {
         }
     }
 }
-
 

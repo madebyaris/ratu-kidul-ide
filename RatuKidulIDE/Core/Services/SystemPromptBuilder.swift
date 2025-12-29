@@ -94,10 +94,13 @@ actor SystemPromptBuilder {
         ## Tool Usage Guidelines
         
         ### IMPORTANT: Tool Call Format
-        **When you need to use a tool, use the native function calling API provided by the system.**
+        **When you need to use a tool, you MUST use the native function calling API provided by the system.**
+        - **ALWAYS use tools when the user asks you to perform file operations, search, or terminal commands**
+        - Do NOT just say "I'll do X" - actually CALL the tool to perform the action
         - Do NOT output tool calls as text, XML, or markdown
         - Do NOT write tool names in your response text
         - The system will automatically detect and execute your tool calls when you use the function calling API
+        - **If the user asks you to read, write, edit, delete, search, or run commands, you MUST use the appropriate tool immediately**
         - Simply indicate what you're doing in natural language, and the system will handle the tool execution
         
         ### Before Editing
