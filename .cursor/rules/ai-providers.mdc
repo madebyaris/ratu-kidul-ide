@@ -1,0 +1,494 @@
+---
+description: AI provider implementation patterns for Ratu Kidul IDE
+globs: ["**/Providers/**/*.swift"]
+alwaysApply: true
+---
+
+# AI Provider Implementation Patterns
+
+## AIProvider Protocol
+
+All AI providers must conform to the `AIProvider` protocol:
+
+```swift
+protocol AIProvider {
+    var name: String { get }
+    var requiresAPIKey: Bool { get }
+    
+    func streamResponse(
+        config: ModelConfig,
+        messages: [LLMMessage],
+        tools: [UserTool]?,
+        onChunk: @escaping (String) -> Void,
+        onToolCall: @escaping (ToolCall) -> Void,
+        onComplete: @escaping (String, [ToolCall]?) async -> Void
+    ) async throws
+    
+    func validateAPIKey(_ key: String) async throws -> Bool
+    func listModels() async throws -> [Model]
+}
+```
+
+## Provider Implementation Structure
+
+```swift
+struct OpenAIProvider: AIProvider {
+    // MARK: - Properties
+    let name = "OpenAI"
+    let requiresAPIKey = true
+    private let baseURL = "https://api.openai.com/v1"
+    
+    // MARK: - AIProvider Conformance
+    
+    func streamResponse(
+        config: ModelConfig,
+        messages: [LLMMessage],
+        tools: [UserTool]?,
+        onChunk: @escaping (String) -> Void,
+        onToolCall: @escaping (ToolCall) -> Void,
+        onComplete: @escaping (String, [ToolCall]?) async -> Void
+    ) async throws {
+        // 1. Build request
+        let request = try buildRequest(config: config, messages: messages, tools: tools)
+        
+        // 2. Execute streaming request
+        try await executeStreamingRequest(
+            request,
+            onChunk: onChunk,
+            onToolCall: onToolCall,
+            onComplete: onComplete
+        )
+    }
+    
+    func validateAPIKey(_ key: String) async throws -> Bool {
+        // Validate by making a simple API call
+    }
+    
+    func listModels() async throws -> [Model] {
+        // Fetch available models
+    }
+    
+    // MARK: - Private Implementation
+    
+    private func buildRequest(
+        config: ModelConfig,
+        messages: [LLMMessage],
+        tools: [UserTool]?
+    ) throws -> URLRequest {
+        // Build request body
+    }
+    
+    private func executeStreamingRequest(
+        _ request: URLRequest,
+        onChunk: @escaping (String) -> Void,
+        onToolCall: @escaping (ToolCall) -> Void,
+        onComplete: @escaping (String, [ToolCall]?) async -> Void
+    ) async throws {
+        // Execute and parse SSE stream
+    }
+}
+```
+
+## Streaming Response Handling
+
+Handle Server-Sent Events (SSE) properly:
+
+```swift
+private func executeStreamingRequest(
+    _ request: URLRequest,
+    onChunk: @escaping (String) -> Void,
+    onToolCall: @escaping (ToolCall) -> Void,
+    onComplete: @escaping (String, [ToolCall]?) async -> Void
+) async throws {
+    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+    
+    guard let httpResponse = response as? HTTPURLResponse else {
+        throw ProviderError.invalidResponse
+    }
+    
+    guard httpResponse.statusCode == 200 else {
+        throw ProviderError.httpError(httpResponse.statusCode)
+    }
+    
+    var fullText = ""
+    var toolCalls: [ToolCall] = []
+    var buffer = ""
+    
+    for try await line in bytes.lines {
+        // Handle SSE format: "data: {...}"
+        guard line.hasPrefix("data: ") else { continue }
+        
+        let jsonString = String(line.dropFirst(6))
+        
+        // Check for stream end
+        if jsonString == "[DONE]" {
+            break
+        }
+        
+        // Parse JSON chunk
+        guard let data = jsonString.data(using: .utf8),
+              let chunk = try? JSONDecoder().decode(StreamChunk.self, from: data) else {
+            continue
+        }
+        
+        // Handle text delta
+        if let delta = chunk.choices.first?.delta.content {
+            fullText += delta
+            onChunk(delta)
+        }
+        
+        // Handle tool calls
+        if let toolCallDeltas = chunk.choices.first?.delta.toolCalls {
+            for toolCallDelta in toolCallDeltas {
+                handleToolCallDelta(toolCallDelta, &toolCalls, onToolCall)
+            }
+        }
+    }
+    
+    // Complete
+    await onComplete(fullText, toolCalls.isEmpty ? nil : toolCalls)
+}
+```
+
+## Tool Call Handling
+
+Parse and accumulate tool calls from streaming responses:
+
+```swift
+private func handleToolCallDelta(
+    _ delta: ToolCallDelta,
+    _ toolCalls: inout [ToolCall],
+    _ onToolCall: @escaping (ToolCall) -> Void
+) {
+    let index = delta.index
+    
+    // Ensure array is large enough
+    while toolCalls.count <= index {
+        toolCalls.append(ToolCall(id: "", name: "", arguments: [:]))
+    }
+    
+    var toolCall = toolCalls[index]
+    
+    // Accumulate tool call data
+    if let id = delta.id {
+        toolCall.id = id
+    }
+    
+    if let name = delta.function?.name {
+        toolCall.name = name
+    }
+    
+    if let argumentsChunk = delta.function?.arguments {
+        // Accumulate JSON arguments
+        if toolCall.argumentsJSON == nil {
+            toolCall.argumentsJSON = argumentsChunk
+        } else {
+            toolCall.argumentsJSON! += argumentsChunk
+        }
+    }
+    
+    toolCalls[index] = toolCall
+    
+    // Parse complete arguments
+    if let jsonString = toolCall.argumentsJSON,
+       let data = jsonString.data(using: .utf8),
+       let arguments = try? JSONDecoder().decode([String: AnyCodable].self, from: data) {
+        toolCall.arguments = arguments
+        toolCalls[index] = toolCall
+        onToolCall(toolCall)
+    }
+}
+```
+
+## Error Handling
+
+Define provider-specific errors:
+
+```swift
+enum ProviderError: LocalizedError {
+    case invalidAPIKey
+    case invalidResponse
+    case httpError(Int)
+    case rateLimitExceeded
+    case timeout
+    case networkError(Error)
+    case decodingError(Error)
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidAPIKey:
+            return "Invalid API key"
+        case .invalidResponse:
+            return "Received invalid response from server"
+        case .httpError(let code):
+            return "HTTP error: \(code)"
+        case .rateLimitExceeded:
+            return "Rate limit exceeded. Please try again later."
+        case .timeout:
+            return "Request timed out"
+        case .networkError(let error):
+            return "Network error: \(error.localizedDescription)"
+        case .decodingError(let error):
+            return "Failed to decode response: \(error.localizedDescription)"
+        }
+    }
+}
+
+// Handle errors in provider
+func streamResponse(...) async throws {
+    do {
+        try await executeStreamingRequest(...)
+    } catch let error as URLError {
+        if error.code == .timedOut {
+            throw ProviderError.timeout
+        } else {
+            throw ProviderError.networkError(error)
+        }
+    } catch let error as DecodingError {
+        throw ProviderError.decodingError(error)
+    }
+}
+```
+
+## Request Building
+
+Build requests with proper headers and body:
+
+```swift
+private func buildRequest(
+    config: ModelConfig,
+    messages: [LLMMessage],
+    tools: [UserTool]?
+) throws -> URLRequest {
+    let url = URL(string: "\(baseURL)/chat/completions")!
+    var request = URLRequest(url: url)
+    
+    // Headers
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
+    
+    // Request body
+    var body: [String: Any] = [
+        "model": config.modelId,
+        "messages": messages.map { $0.toDictionary() },
+        "stream": true,
+        "max_tokens": config.maxTokens ?? 4096,
+        "temperature": config.temperature ?? 0.7
+    ]
+    
+    // Add system prompt if present
+    if !config.systemPrompt.isEmpty {
+        body["system"] = config.systemPrompt
+    }
+    
+    // Add tools if present
+    if let tools = tools, !tools.isEmpty {
+        body["tools"] = tools.map { $0.toOpenAIFormat() }
+    }
+    
+    request.httpBody = try JSONSerialization.data(withJSONObject: body)
+    
+    return request
+}
+```
+
+## Message Formatting
+
+Convert internal message format to provider format:
+
+```swift
+extension LLMMessage {
+    func toDictionary() -> [String: Any] {
+        var dict: [String: Any] = ["role": role.rawValue]
+        
+        switch content {
+        case .text(let text):
+            dict["content"] = text
+            
+        case .multipart(let parts):
+            dict["content"] = parts.map { part in
+                switch part {
+                case .text(let text):
+                    return ["type": "text", "text": text]
+                case .image(let data, let mimeType):
+                    let base64 = data.base64EncodedString()
+                    return [
+                        "type": "image_url",
+                        "image_url": [
+                            "url": "data:\(mimeType);base64,\(base64)"
+                        ]
+                    ]
+                }
+            }
+            
+        case .toolCalls(let calls):
+            dict["tool_calls"] = calls.map { call in
+                [
+                    "id": call.id,
+                    "type": "function",
+                    "function": [
+                        "name": call.name,
+                        "arguments": call.argumentsJSON ?? "{}"
+                    ]
+                ]
+            }
+            
+        case .toolResults(let results):
+            // For tool results, create separate messages
+            break
+        }
+        
+        return dict
+    }
+}
+```
+
+## Rate Limiting and Retries
+
+Implement retry logic with exponential backoff:
+
+```swift
+private func executeWithRetry<T>(
+    maxRetries: Int = 3,
+    operation: () async throws -> T
+) async throws -> T {
+    var lastError: Error?
+    
+    for attempt in 0..<maxRetries {
+        do {
+            return try await operation()
+        } catch let error as ProviderError {
+            lastError = error
+            
+            // Don't retry on certain errors
+            switch error {
+            case .invalidAPIKey, .invalidResponse:
+                throw error
+            case .rateLimitExceeded:
+                // Wait longer for rate limits
+                let delay = TimeInterval(pow(2.0, Double(attempt))) * 2.0
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            default:
+                // Standard exponential backoff
+                let delay = TimeInterval(pow(2.0, Double(attempt)))
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
+        }
+    }
+    
+    throw lastError ?? ProviderError.timeout
+}
+```
+
+## API Key Validation
+
+Validate API keys before use:
+
+```swift
+func validateAPIKey(_ key: String) async throws -> Bool {
+    // Check format first
+    guard !key.isEmpty, key.count > 10 else {
+        return false
+    }
+    
+    // Make a lightweight API call
+    let url = URL(string: "\(baseURL)/models")!
+    var request = URLRequest(url: url)
+    request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+    
+    do {
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            return false
+        }
+        return httpResponse.statusCode == 200
+    } catch {
+        return false
+    }
+}
+```
+
+## Model Listing
+
+Fetch available models from provider:
+
+```swift
+func listModels() async throws -> [Model] {
+    let url = URL(string: "\(baseURL)/models")!
+    var request = URLRequest(url: url)
+    request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+    
+    let (data, response) = try await URLSession.shared.data(for: request)
+    
+    guard let httpResponse = response as? HTTPURLResponse,
+          httpResponse.statusCode == 200 else {
+        throw ProviderError.httpError((response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
+    
+    let modelResponse = try JSONDecoder().decode(ModelsResponse.self, from: data)
+    
+    return modelResponse.data.map { apiModel in
+        Model(
+            id: "\(name.lowercased())/\(apiModel.id)",
+            displayName: apiModel.id,
+            isEnabled: true,
+            supportedAttachmentTypes: determineSupportedTypes(apiModel)
+        )
+    }
+}
+
+private func determineSupportedTypes(_ model: APIModel) -> [AttachmentType] {
+    // Determine supported types based on model capabilities
+    if model.id.contains("vision") || model.id.contains("4") {
+        return [.text, .image]
+    }
+    return [.text]
+}
+```
+
+## Testing Providers
+
+Write tests for provider implementations:
+
+```swift
+final class OpenAIProviderTests: XCTestCase {
+    var provider: OpenAIProvider!
+    
+    override func setUp() {
+        provider = OpenAIProvider()
+    }
+    
+    func testStreamResponse() async throws {
+        var chunks: [String] = []
+        var receivedToolCalls: [ToolCall] = []
+        
+        try await provider.streamResponse(
+            config: testConfig,
+            messages: testMessages,
+            tools: nil,
+            onChunk: { chunks.append($0) },
+            onToolCall: { receivedToolCalls.append($0) },
+            onComplete: { fullText, toolCalls in
+                XCTAssertEqual(fullText, chunks.joined())
+            }
+        )
+    }
+    
+    func testErrorHandling() async {
+        do {
+            try await provider.streamResponse(
+                config: invalidConfig,
+                messages: testMessages,
+                tools: nil,
+                onChunk: { _ in },
+                onToolCall: { _ in },
+                onComplete: { _, _ in }
+            )
+            XCTFail("Should have thrown error")
+        } catch {
+            XCTAssertTrue(error is ProviderError)
+        }
+    }
+}
+```

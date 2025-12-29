@@ -115,9 +115,9 @@ actor AnthropicProvider: AIProvider {
                     if let delta = event.delta {
                         // Handle text content delta
                         if let text = delta.text {
-                            fullText += text
-                            onChunk(text)
-                        }
+                        fullText += text
+                        onChunk(text)
+                    }
                         
                         // Handle tool use delta - arguments streamed as partial JSON
                         if delta.type == "input_json_delta",
@@ -359,7 +359,7 @@ struct AnthropicRequest: Codable {
             
             struct ToolResult: Codable {
                 let toolUseId: String
-                let content: String
+        let content: String
             }
         }
     }

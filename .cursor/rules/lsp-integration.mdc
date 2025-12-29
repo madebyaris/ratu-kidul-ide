@@ -1,0 +1,671 @@
+---
+description: Language Server Protocol implementation guidelines for Ratu Kidul IDE
+globs: ["**/LSP/**/*.swift"]
+alwaysApply: false
+---
+
+# LSP Integration Guidelines
+
+## LSP Client Architecture
+
+Implement a generic LSP client that can connect to any language server:
+
+```swift
+actor LSPClient {
+    // MARK: - Properties
+    private let serverPath: String
+    private let workspaceRoot: String
+    private var process: Process?
+    private var transport: LSPTransport?
+    private var requestID: Int = 0
+    private var pendingRequests: [Int: CheckedContinuation<LSPResponse, Error>] = [:]
+    
+    // Capabilities
+    private var serverCapabilities: ServerCapabilities?
+    
+    // MARK: - Initialization
+    init(serverPath: String, workspaceRoot: String) {
+        self.serverPath = serverPath
+        self.workspaceRoot = workspaceRoot
+    }
+    
+    // MARK: - Lifecycle
+    
+    func start() async throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: serverPath)
+        
+        let inputPipe = Pipe()
+        let outputPipe = Pipe()
+        process.standardInput = inputPipe
+        process.standardOutput = outputPipe
+        process.standardError = Pipe()  // Capture errors
+        
+        self.process = process
+        self.transport = LSPTransport(
+            input: inputPipe,
+            output: outputPipe,
+            onMessage: handleMessage
+        )
+        
+        try process.run()
+        
+        // Start reading messages
+        await transport?.startReading()
+        
+        // Send initialize request
+        try await initialize()
+    }
+    
+    func shutdown() async throws {
+        // Send shutdown request
+        _ = try await sendRequest(method: "shutdown", params: nil)
+        
+        // Send exit notification
+        try await sendNotification(method: "exit", params: nil)
+        
+        // Terminate process
+        process?.terminate()
+        process = nil
+        transport = nil
+    }
+    
+    // MARK: - Initialize
+    
+    private func initialize() async throws {
+        let params = InitializeParams(
+            processId: Int(ProcessInfo.processInfo.processIdentifier),
+            rootUri: "file://\(workspaceRoot)",
+            capabilities: ClientCapabilities(
+                textDocument: TextDocumentClientCapabilities(
+                    completion: CompletionClientCapabilities(
+                        dynamicRegistration: true,
+                        completionItem: CompletionItemCapabilities(
+                            snippetSupport: true,
+                            commitCharactersSupport: true
+                        )
+                    ),
+                    hover: HoverClientCapabilities(
+                        dynamicRegistration: true,
+                        contentFormat: [.markdown, .plaintext]
+                    ),
+                    definition: DefinitionClientCapabilities(
+                        dynamicRegistration: true,
+                        linkSupport: true
+                    ),
+                    publishDiagnostics: PublishDiagnosticsClientCapabilities(
+                        relatedInformation: true,
+                        tagSupport: DiagnosticTagSupport(
+                            valueSet: [.unnecessary, .deprecated]
+                        )
+                    )
+                )
+            )
+        )
+        
+        let response: InitializeResult = try await sendRequest(
+            method: "initialize",
+            params: params
+        )
+        
+        serverCapabilities = response.capabilities
+        
+        // Send initialized notification
+        try await sendNotification(method: "initialized", params: InitializedParams())
+    }
+    
+    // MARK: - Document Sync
+    
+    func didOpenDocument(uri: String, languageId: String, version: Int, text: String) async throws {
+        let params = DidOpenTextDocumentParams(
+            textDocument: TextDocumentItem(
+                uri: uri,
+                languageId: languageId,
+                version: version,
+                text: text
+            )
+        )
+        try await sendNotification(method: "textDocument/didOpen", params: params)
+    }
+    
+    func didChangeDocument(uri: String, version: Int, changes: [TextDocumentContentChangeEvent]) async throws {
+        let params = DidChangeTextDocumentParams(
+            textDocument: VersionedTextDocumentIdentifier(uri: uri, version: version),
+            contentChanges: changes
+        )
+        try await sendNotification(method: "textDocument/didChange", params: params)
+    }
+    
+    func didCloseDocument(uri: String) async throws {
+        let params = DidCloseTextDocumentParams(
+            textDocument: TextDocumentIdentifier(uri: uri)
+        )
+        try await sendNotification(method: "textDocument/didClose", params: params)
+    }
+    
+    // MARK: - Language Features
+    
+    func completion(uri: String, position: Position) async throws -> CompletionList {
+        let params = CompletionParams(
+            textDocument: TextDocumentIdentifier(uri: uri),
+            position: position
+        )
+        return try await sendRequest(method: "textDocument/completion", params: params)
+    }
+    
+    func hover(uri: String, position: Position) async throws -> Hover? {
+        let params = HoverParams(
+            textDocument: TextDocumentIdentifier(uri: uri),
+            position: position
+        )
+        return try await sendRequest(method: "textDocument/hover", params: params)
+    }
+    
+    func definition(uri: String, position: Position) async throws -> [Location] {
+        let params: DefinitionParams = DefinitionParams(
+            textDocument: TextDocumentIdentifier(uri: uri),
+            position: position
+        )
+        let response: LocationOrLocationLink = try await sendRequest(
+            method: "textDocument/definition",
+            params: params
+        )
+        
+        switch response {
+        case .location(let location):
+            return [location]
+        case .locations(let locations):
+            return locations
+        case .locationLinks(let links):
+            return links.map { $0.targetLocation }
+        }
+    }
+    
+    func references(uri: String, position: Position, includeDeclaration: Bool) async throws -> [Location] {
+        let params = ReferenceParams(
+            textDocument: TextDocumentIdentifier(uri: uri),
+            position: position,
+            context: ReferenceContext(includeDeclaration: includeDeclaration)
+        )
+        return try await sendRequest(method: "textDocument/references", params: params)
+    }
+    
+    // MARK: - Request/Response Handling
+    
+    private func sendRequest<P: Encodable, R: Decodable>(
+        method: String,
+        params: P?
+    ) async throws -> R {
+        let id = nextRequestID()
+        
+        let request = LSPRequest(
+            jsonrpc: "2.0",
+            id: .int(id),
+            method: method,
+            params: params
+        )
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            pendingRequests[id] = continuation as? CheckedContinuation<LSPResponse, Error>
+            
+            Task {
+                do {
+                    try await transport?.send(request)
+                } catch {
+                    pendingRequests.removeValue(forKey: id)
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    private func sendNotification<P: Encodable>(method: String, params: P?) async throws {
+        let notification = LSPNotification(
+            jsonrpc: "2.0",
+            method: method,
+            params: params
+        )
+        try await transport?.send(notification)
+    }
+    
+    private func handleMessage(_ message: LSPMessage) {
+        switch message {
+        case .response(let response):
+            handleResponse(response)
+        case .notification(let notification):
+            handleNotification(notification)
+        case .request(let request):
+            handleRequest(request)
+        }
+    }
+    
+    private func handleResponse(_ response: LSPResponse) {
+        guard case .int(let id) = response.id,
+              let continuation = pendingRequests.removeValue(forKey: id) else {
+            return
+        }
+        
+        if let error = response.error {
+            continuation.resume(throwing: LSPError.serverError(error))
+        } else {
+            continuation.resume(returning: response)
+        }
+    }
+    
+    private func handleNotification(_ notification: LSPNotification) {
+        // Handle server notifications (e.g., publishDiagnostics)
+        switch notification.method {
+        case "textDocument/publishDiagnostics":
+            if let params = try? notification.decode(PublishDiagnosticsParams.self) {
+                Task {
+                    await handleDiagnostics(params)
+                }
+            }
+        default:
+            break
+        }
+    }
+    
+    private func handleRequest(_ request: LSPRequest) {
+        // Handle server requests (rare, usually for workspace configuration)
+    }
+    
+    private func handleDiagnostics(_ params: PublishDiagnosticsParams) async {
+        // Notify diagnostics handler
+        NotificationCenter.default.post(
+            name: .lspDiagnosticsReceived,
+            object: params
+        )
+    }
+    
+    private func nextRequestID() -> Int {
+        requestID += 1
+        return requestID
+    }
+}
+```
+
+## JSON-RPC Transport
+
+Implement JSON-RPC over stdio:
+
+```swift
+actor LSPTransport {
+    private let inputPipe: Pipe
+    private let outputPipe: Pipe
+    private let onMessage: (LSPMessage) -> Void
+    
+    init(input: Pipe, output: Pipe, onMessage: @escaping (LSPMessage) -> Void) {
+        self.inputPipe = input
+        self.outputPipe = output
+        self.onMessage = onMessage
+    }
+    
+    func startReading() async {
+        let handle = outputPipe.fileHandleForReading
+        
+        Task {
+            while true {
+                do {
+                    // Read Content-Length header
+                    guard let headerData = try handle.read(upToCount: 1024),
+                          let headerString = String(data: headerData, encoding: .utf8) else {
+                        break
+                    }
+                    
+                    // Parse Content-Length
+                    guard let contentLength = parseContentLength(headerString) else {
+                        continue
+                    }
+                    
+                    // Read message body
+                    guard let bodyData = try handle.read(upToCount: contentLength) else {
+                        break
+                    }
+                    
+                    // Decode message
+                    let message = try JSONDecoder().decode(LSPMessage.self, from: bodyData)
+                    onMessage(message)
+                    
+                } catch {
+                    print("LSP Transport error: \(error)")
+                    break
+                }
+            }
+        }
+    }
+    
+    func send<T: Encodable>(_ message: T) async throws {
+        let encoder = JSONEncoder()
+        let bodyData = try encoder.encode(message)
+        
+        // Build LSP message with headers
+        let contentLength = bodyData.count
+        let header = "Content-Length: \(contentLength)\r\n\r\n"
+        guard let headerData = header.data(using: .utf8) else {
+            throw LSPError.encodingFailed
+        }
+        
+        // Write to pipe
+        let handle = inputPipe.fileHandleForWriting
+        handle.write(headerData)
+        handle.write(bodyData)
+    }
+    
+    private func parseContentLength(_ header: String) -> Int? {
+        let lines = header.split(separator: "\r\n")
+        for line in lines {
+            if line.hasPrefix("Content-Length:") {
+                let value = line.dropFirst("Content-Length:".count).trimmingCharacters(in: .whitespaces)
+                return Int(value)
+            }
+        }
+        return nil
+    }
+}
+```
+
+## LSP Types
+
+Define LSP protocol types:
+
+```swift
+// Core types
+struct Position: Codable {
+    let line: Int
+    let character: Int
+}
+
+struct Range: Codable {
+    let start: Position
+    let end: Position
+}
+
+struct Location: Codable {
+    let uri: String
+    let range: Range
+}
+
+struct TextDocumentIdentifier: Codable {
+    let uri: String
+}
+
+struct VersionedTextDocumentIdentifier: Codable {
+    let uri: String
+    let version: Int
+}
+
+// Completion
+struct CompletionParams: Codable {
+    let textDocument: TextDocumentIdentifier
+    let position: Position
+}
+
+struct CompletionList: Codable {
+    let isIncomplete: Bool
+    let items: [CompletionItem]
+}
+
+struct CompletionItem: Codable {
+    let label: String
+    let kind: CompletionItemKind?
+    let detail: String?
+    let documentation: MarkupContent?
+    let insertText: String?
+}
+
+enum CompletionItemKind: Int, Codable {
+    case text = 1
+    case method = 2
+    case function = 3
+    case constructor = 4
+    case field = 5
+    case variable = 6
+    case `class` = 7
+    case interface = 8
+    case module = 9
+    case property = 10
+    case unit = 11
+    case value = 12
+    case `enum` = 13
+    case keyword = 14
+    case snippet = 15
+}
+
+// Hover
+struct HoverParams: Codable {
+    let textDocument: TextDocumentIdentifier
+    let position: Position
+}
+
+struct Hover: Codable {
+    let contents: MarkupContent
+    let range: Range?
+}
+
+struct MarkupContent: Codable {
+    let kind: MarkupKind
+    let value: String
+}
+
+enum MarkupKind: String, Codable {
+    case plaintext
+    case markdown
+}
+
+// Diagnostics
+struct PublishDiagnosticsParams: Codable {
+    let uri: String
+    let diagnostics: [Diagnostic]
+}
+
+struct Diagnostic: Codable {
+    let range: Range
+    let severity: DiagnosticSeverity?
+    let code: String?
+    let source: String?
+    let message: String
+}
+
+enum DiagnosticSeverity: Int, Codable {
+    case error = 1
+    case warning = 2
+    case information = 3
+    case hint = 4
+}
+```
+
+## Language Server Configuration
+
+Configure language servers:
+
+```swift
+struct LanguageServerConfig {
+    let languageId: String
+    let fileExtensions: [String]
+    let serverPath: String
+    let arguments: [String]
+    
+    static let configurations: [LanguageServerConfig] = [
+        // Swift
+        LanguageServerConfig(
+            languageId: "swift",
+            fileExtensions: ["swift"],
+            serverPath: "/usr/bin/xcrun",
+            arguments: ["sourcekit-lsp"]
+        ),
+        
+        // TypeScript
+        LanguageServerConfig(
+            languageId: "typescript",
+            fileExtensions: ["ts", "tsx"],
+            serverPath: "/usr/local/bin/typescript-language-server",
+            arguments: ["--stdio"]
+        ),
+        
+        // Python
+        LanguageServerConfig(
+            languageId: "python",
+            fileExtensions: ["py"],
+            serverPath: "/usr/local/bin/pylsp",
+            arguments: []
+        ),
+        
+        // Rust
+        LanguageServerConfig(
+            languageId: "rust",
+            fileExtensions: ["rs"],
+            serverPath: "/usr/local/bin/rust-analyzer",
+            arguments: []
+        )
+    ]
+    
+    static func forFile(_ path: String) -> LanguageServerConfig? {
+        let ext = (path as NSString).pathExtension
+        return configurations.first { $0.fileExtensions.contains(ext) }
+    }
+}
+```
+
+## LSP Manager
+
+Manage multiple language servers:
+
+```swift
+actor LSPManager {
+    private var clients: [String: LSPClient] = [:]
+    private let workspaceRoot: String
+    
+    init(workspaceRoot: String) {
+        self.workspaceRoot = workspaceRoot
+    }
+    
+    func clientForFile(_ path: String) async throws -> LSPClient {
+        guard let config = LanguageServerConfig.forFile(path) else {
+            throw LSPError.noServerForLanguage
+        }
+        
+        // Return existing client or create new one
+        if let existing = clients[config.languageId] {
+            return existing
+        }
+        
+        let client = LSPClient(
+            serverPath: config.serverPath,
+            workspaceRoot: workspaceRoot
+        )
+        
+        try await client.start()
+        clients[config.languageId] = client
+        
+        return client
+    }
+    
+    func shutdown() async throws {
+        for (_, client) in clients {
+            try await client.shutdown()
+        }
+        clients.removeAll()
+    }
+}
+```
+
+## Editor Integration
+
+Integrate LSP with the code editor:
+
+```swift
+@MainActor
+class EditorViewModel: ObservableObject {
+    @Published var completions: [CompletionItem] = []
+    @Published var hoverContent: String?
+    @Published var diagnostics: [Diagnostic] = []
+    
+    private let lspManager: LSPManager
+    private let filePath: String
+    private var fileURI: String {
+        "file://\(filePath)"
+    }
+    
+    init(lspManager: LSPManager, filePath: String) {
+        self.lspManager = lspManager
+        self.filePath = filePath
+    }
+    
+    func didOpenDocument(content: String) async {
+        do {
+            let client = try await lspManager.clientForFile(filePath)
+            try await client.didOpenDocument(
+                uri: fileURI,
+                languageId: languageId,
+                version: 1,
+                text: content
+            )
+        } catch {
+            print("Failed to open document: \(error)")
+        }
+    }
+    
+    func requestCompletion(at position: Position) async {
+        do {
+            let client = try await lspManager.clientForFile(filePath)
+            let list = try await client.completion(uri: fileURI, position: position)
+            completions = list.items
+        } catch {
+            print("Completion failed: \(error)")
+        }
+    }
+    
+    func requestHover(at position: Position) async {
+        do {
+            let client = try await lspManager.clientForFile(filePath)
+            if let hover = try await client.hover(uri: fileURI, position: position) {
+                hoverContent = hover.contents.value
+            }
+        } catch {
+            print("Hover failed: \(error)")
+        }
+    }
+}
+```
+
+## Error Handling
+
+Define LSP-specific errors:
+
+```swift
+enum LSPError: LocalizedError {
+    case serverNotFound
+    case initializationFailed(String)
+    case requestTimeout
+    case serverError(ResponseError)
+    case encodingFailed
+    case decodingFailed(Error)
+    case noServerForLanguage
+    
+    var errorDescription: String? {
+        switch self {
+        case .serverNotFound:
+            return "Language server executable not found"
+        case .initializationFailed(let reason):
+            return "Failed to initialize: \(reason)"
+        case .requestTimeout:
+            return "Request timed out"
+        case .serverError(let error):
+            return "Server error: \(error.message)"
+        case .encodingFailed:
+            return "Failed to encode request"
+        case .decodingFailed(let error):
+            return "Failed to decode response: \(error)"
+        case .noServerForLanguage:
+            return "No language server configured for this file type"
+        }
+    }
+}
+
+struct ResponseError: Codable {
+    let code: Int
+    let message: String
+    let data: AnyCodable?
+}
+```

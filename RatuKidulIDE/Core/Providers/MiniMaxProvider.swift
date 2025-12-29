@@ -199,8 +199,8 @@ actor MiniMaxProvider: AIProvider {
                         }
                     }
                     
-                    await onComplete(fullText, validToolCalls.isEmpty ? nil : validToolCalls)
-                    return
+                        await onComplete(fullText, validToolCalls.isEmpty ? nil : validToolCalls)
+                        return
                     
                 default:
                     break
@@ -305,11 +305,11 @@ actor MiniMaxProvider: AIProvider {
         // Convert tools to Anthropic format if present
         let anthropicTools: [AnthropicRequestWithTools.Tool]? = tools?.map { tool in
             AnthropicRequestWithTools.Tool(
-                name: tool.namespacedName,
-                description: tool.description ?? "",
+                        name: tool.namespacedName,
+                        description: tool.description ?? "",
                 inputSchema: tool.inputSchema
-            )
-        }
+                )
+            }
         
         // Build Anthropic-compatible request
         // Set tool_choice to "any" if tools are provided to encourage tool usage
@@ -364,8 +364,8 @@ struct AnthropicRequestWithTools: Codable {
             case .tool(let name):
                 try container.encode("tool", forKey: .type)
                 try container.encode(name, forKey: .name)
-            }
         }
+    }
         
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -382,8 +382,8 @@ struct AnthropicRequestWithTools: Codable {
                 self = .auto
             }
         }
-    }
-    
+        }
+        
     struct Message: Codable {
         let role: String
         let content: [ContentBlock]

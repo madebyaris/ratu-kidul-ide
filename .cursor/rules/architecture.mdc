@@ -1,0 +1,482 @@
+---
+description: Project architecture guidelines and layer separation for Ratu Kidul IDE
+globs: ["**/*.swift"]
+alwaysApply: true
+---
+
+# Architecture Guidelines
+
+## Clean Architecture Layers
+
+Ratu Kidul IDE follows clean architecture principles with clear layer separation:
+
+```
+┌─────────────────────────────────────────┐
+│      Presentation Layer (SwiftUI)       │
+│  Views, ViewModels, UI Components       │
+└──────────────┬──────────────────────────┘
+               │ depends on
+┌──────────────▼──────────────────────────┐
+│      Application Layer (Services)       │
+│  Business Logic, Use Cases, Services    │
+└──────────────┬──────────────────────────┘
+               │ depends on
+┌──────────────▼──────────────────────────┐
+│      Domain Layer (Models, Protocols)   │
+│  Entities, Protocols, Domain Logic      │
+└──────────────┬──────────────────────────┘
+               │ depends on
+┌──────────────▼──────────────────────────┐
+│   Infrastructure Layer (Data, Network)  │
+│  SwiftData, Network, FileSystem, MCP    │
+└─────────────────────────────────────────┘
+```
+
+**Key Principles:**
+- Dependencies point inward (outer layers depend on inner layers)
+- Inner layers know nothing about outer layers
+- Domain layer is pure Swift with no framework dependencies
+- Infrastructure implements interfaces defined in domain layer
+
+## Feature-Based Organization
+
+Organize code by feature, not by layer:
+
+```
+Features/
+├── Chat/
+│   ├── Views/
+│   │   ├── ChatView.swift
+│   │   ├── MessageBubble.swift
+│   │   └── ChatInputView.swift
+│   ├── ViewModels/
+│   │   └── ChatViewModel.swift
+│   └── Models/
+│       └── ChatModels.swift
+├── Editor/
+│   ├── Views/
+│   ├── ViewModels/
+│   └── Models/
+└── Settings/
+    ├── Views/
+    └── ViewModels/
+```
+
+**Benefits:**
+- Related code stays together
+- Easy to find and modify features
+- Clear feature boundaries
+- Supports modular development
+
+## Dependency Injection
+
+Use protocol-based dependency injection for testability:
+
+```swift
+// Domain Layer: Define protocol
+protocol AIProvider {
+    func streamResponse(
+        config: ModelConfig,
+        messages: [LLMMessage],
+        tools: [UserTool]?
+    ) async throws
+}
+
+// Application Layer: Service depends on protocol
+actor ChatService {
+    private let provider: AIProvider
+    
+    init(provider: AIProvider) {
+        self.provider = provider
+    }
+    
+    func sendMessage(_ text: String) async throws {
+        try await provider.streamResponse(...)
+    }
+}
+
+// Infrastructure Layer: Concrete implementation
+struct OpenAIProvider: AIProvider {
+    func streamResponse(...) async throws {
+        // Implementation
+    }
+}
+
+// Presentation Layer: Inject dependency
+@StateObject private var viewModel = ChatViewModel(
+    service: ChatService(provider: OpenAIProvider())
+)
+```
+
+**Guidelines:**
+- Define protocols in domain layer
+- Inject dependencies through initializers
+- Use protocol types for properties
+- Avoid singletons except for truly global state
+
+## Service Layer Pattern
+
+Use actors for thread-safe services:
+
+```swift
+// Service manages business logic and coordinates between layers
+actor GitService {
+    private let projectPath: String
+    private var cachedStatus: GitStatus?
+    
+    init(projectPath: String) {
+        self.projectPath = projectPath
+    }
+    
+    // Public API
+    func status() async throws -> GitStatus {
+        if let cached = cachedStatus {
+            return cached
+        }
+        
+        let status = try await fetchStatus()
+        cachedStatus = status
+        return status
+    }
+    
+    func stage(files: [String]) async throws {
+        try await executeGitCommand(["add"] + files)
+        cachedStatus = nil // Invalidate cache
+    }
+    
+    // Private implementation
+    private func fetchStatus() async throws -> GitStatus {
+        let output = try await executeGitCommand(["status", "--porcelain"])
+        return parseStatus(output)
+    }
+    
+    private func executeGitCommand(_ args: [String]) async throws -> String {
+        // Shell execution
+    }
+}
+```
+
+**Service Characteristics:**
+- Marked as `actor` for thread safety
+- Encapsulates business logic
+- Coordinates between infrastructure and presentation
+- Manages state and caching
+- Provides clean async API
+
+## Repository Pattern
+
+Use repositories for data access:
+
+```swift
+// Domain: Repository protocol
+protocol ChatRepository {
+    func fetchChats(for projectId: String) async throws -> [Chat]
+    func save(_ chat: Chat) async throws
+    func delete(_ chat: Chat) async throws
+}
+
+// Infrastructure: SwiftData implementation
+actor SwiftDataChatRepository: ChatRepository {
+    private let modelContext: ModelContext
+    
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+    }
+    
+    func fetchChats(for projectId: String) async throws -> [Chat] {
+        let descriptor = FetchDescriptor<Chat>(
+            predicate: #Predicate { $0.project?.id == projectId },
+            sortBy: [SortDescriptor(\Chat.updatedAt, order: .reverse)]
+        )
+        return try modelContext.fetch(descriptor)
+    }
+    
+    func save(_ chat: Chat) async throws {
+        modelContext.insert(chat)
+        try modelContext.save()
+    }
+    
+    func delete(_ chat: Chat) async throws {
+        modelContext.delete(chat)
+        try modelContext.save()
+    }
+}
+```
+
+## View Model Pattern
+
+ViewModels bridge between views and services:
+
+```swift
+@MainActor
+class ChatViewModel: ObservableObject {
+    // Published state for UI
+    @Published var messages: [Message] = []
+    @Published var isLoading = false
+    @Published var error: Error?
+    
+    // Dependencies (injected)
+    private let chatService: ChatService
+    private let projectPath: String
+    
+    // Initialization with dependency injection
+    init(chatService: ChatService, projectPath: String) {
+        self.chatService = chatService
+        self.projectPath = projectPath
+    }
+    
+    // Public API for view
+    func sendMessage(_ text: String) async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            let response = try await chatService.sendMessage(text)
+            messages.append(response)
+            error = nil
+        } catch {
+            self.error = error
+        }
+    }
+    
+    func loadHistory() async {
+        // Load messages
+    }
+}
+```
+
+**ViewModel Guidelines:**
+- Always marked `@MainActor` for UI updates
+- Conforms to `ObservableObject`
+- Uses `@Published` for UI-bound state
+- Depends on services, not infrastructure
+- Contains no business logic (delegates to services)
+- Transforms service data for UI consumption
+
+## Protocol-Oriented Design
+
+Define protocols for extensibility:
+
+```swift
+// Core protocol
+protocol Toolset {
+    var name: String { get }
+    var tools: [Tool] { get }
+    func execute(tool: String, arguments: [String: Any]) async throws -> ToolResult
+}
+
+// Multiple implementations
+struct FileToolset: Toolset {
+    let name = "files"
+    let tools = [Tool.readFile, Tool.writeFile, Tool.deleteFile]
+    
+    func execute(tool: String, arguments: [String: Any]) async throws -> ToolResult {
+        switch tool {
+        case "read_file":
+            return try await readFile(arguments)
+        case "write_file":
+            return try await writeFile(arguments)
+        default:
+            throw ToolError.unknownTool(tool)
+        }
+    }
+}
+
+struct TerminalToolset: Toolset {
+    let name = "terminal"
+    let tools = [Tool.runCommand, Tool.killProcess]
+    
+    func execute(tool: String, arguments: [String: Any]) async throws -> ToolResult {
+        // Implementation
+    }
+}
+
+// Manager coordinates toolsets
+actor ToolsetManager {
+    private var toolsets: [String: Toolset] = [:]
+    
+    func register(_ toolset: Toolset) {
+        toolsets[toolset.name] = toolset
+    }
+    
+    func execute(toolset: String, tool: String, arguments: [String: Any]) async throws -> ToolResult {
+        guard let toolset = toolsets[toolset] else {
+            throw ToolError.toolsetNotFound(toolset)
+        }
+        return try await toolset.execute(tool: tool, arguments: arguments)
+    }
+}
+```
+
+## Error Handling Architecture
+
+Define errors at appropriate layers:
+
+```swift
+// Domain Layer: Business errors
+enum ChatError: LocalizedError {
+    case invalidMessage
+    case rateLimitExceeded
+    case contextTooLarge
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidMessage:
+            return "Message content is invalid"
+        case .rateLimitExceeded:
+            return "Too many requests. Please wait."
+        case .contextTooLarge:
+            return "Conversation is too long"
+        }
+    }
+}
+
+// Infrastructure Layer: Technical errors
+enum NetworkError: Error {
+    case noConnection
+    case timeout
+    case serverError(Int)
+}
+
+// Application Layer: Transform errors
+actor ChatService {
+    func sendMessage(_ text: String) async throws {
+        do {
+            try await provider.send(text)
+        } catch NetworkError.timeout {
+            throw ChatError.rateLimitExceeded
+        } catch {
+            throw ChatError.invalidMessage
+        }
+    }
+}
+
+// Presentation Layer: Display errors
+@MainActor
+class ChatViewModel: ObservableObject {
+    @Published var errorMessage: String?
+    
+    func sendMessage(_ text: String) async {
+        do {
+            try await chatService.sendMessage(text)
+        } catch let error as LocalizedError {
+            errorMessage = error.errorDescription
+        } catch {
+            errorMessage = "An unexpected error occurred"
+        }
+    }
+}
+```
+
+## State Management
+
+Manage state at appropriate levels:
+
+```swift
+// App-level state (EnvironmentObject)
+@MainActor
+class AppState: ObservableObject {
+    @Published var selectedProjectId: String?
+    @Published var selectedChatId: String?
+    
+    let modelContainer: ModelContainer
+    let modelContext: ModelContext
+}
+
+// Feature-level state (StateObject in root view)
+@MainActor
+class ChatViewModel: ObservableObject {
+    @Published var messages: [Message] = []
+    @Published var isLoading = false
+}
+
+// View-level state (@State)
+struct ChatView: View {
+    @State private var inputText = ""
+    @State private var showingSettings = false
+}
+```
+
+**State Guidelines:**
+- App state: Navigation, global settings, shared resources
+- Feature state: Feature-specific data and loading states
+- View state: UI-only state (text input, sheet presentation)
+
+## Module Boundaries
+
+Respect module boundaries:
+
+```
+Core/                    # Business logic, no UI dependencies
+├── Providers/          # AI provider implementations
+├── Services/           # Business services
+├── Toolsets/           # Tool execution
+├── LSP/                # LSP client
+└── Git/                # Git operations
+
+Features/               # UI features, depend on Core
+├── Chat/
+├── Editor/
+└── Settings/
+
+Data/                   # Data layer, no UI dependencies
+└── Models/            # SwiftData models
+
+Shared/                 # Utilities used everywhere
+├── Extensions/
+└── Utilities/
+```
+
+**Rules:**
+- Core never imports Features
+- Features can import Core and Data
+- Data never imports Features or Core
+- Shared is imported by everyone
+
+## Testing Architecture
+
+Structure code for testability:
+
+```swift
+// Testable service with protocol
+protocol DataSource {
+    func fetch() async throws -> Data
+}
+
+actor MyService {
+    private let dataSource: DataSource
+    
+    init(dataSource: DataSource) {
+        self.dataSource = dataSource
+    }
+    
+    func process() async throws -> Result {
+        let data = try await dataSource.fetch()
+        return transform(data)
+    }
+}
+
+// Test with mock
+class MockDataSource: DataSource {
+    var mockData: Data?
+    var shouldThrow = false
+    
+    func fetch() async throws -> Data {
+        if shouldThrow {
+            throw TestError.failed
+        }
+        return mockData ?? Data()
+    }
+}
+
+// Test
+func testProcess() async throws {
+    let mock = MockDataSource()
+    mock.mockData = sampleData
+    
+    let service = MyService(dataSource: mock)
+    let result = try await service.process()
+    
+    XCTAssertEqual(result, expectedResult)
+}
+```

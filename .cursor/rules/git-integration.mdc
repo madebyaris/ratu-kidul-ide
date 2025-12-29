@@ -1,0 +1,563 @@
+---
+description: Git integration implementation guidelines for Ratu Kidul IDE
+globs: ["**/Git/**/*.swift", "**/SourceControl/**/*.swift"]
+alwaysApply: false
+---
+
+# Git Integration Guidelines
+
+## GitService Architecture
+
+Use an actor for thread-safe Git operations:
+
+```swift
+actor GitService {
+    // MARK: - Properties
+    private let projectPath: String
+    private var statusCache: GitStatus?
+    private var lastStatusCheck: Date?
+    private let cacheDuration: TimeInterval = 2.0
+    
+    // MARK: - Initialization
+    init(projectPath: String) {
+        self.projectPath = projectPath
+    }
+    
+    // MARK: - Public API
+    
+    /// Get repository status with caching
+    func status(forceRefresh: Bool = false) async throws -> GitStatus {
+        if !forceRefresh,
+           let cached = statusCache,
+           let lastCheck = lastStatusCheck,
+           Date().timeIntervalSince(lastCheck) < cacheDuration {
+            return cached
+        }
+        
+        let status = try await fetchStatus()
+        statusCache = status
+        lastStatusCheck = Date()
+        return status
+    }
+    
+    func stage(paths: [String]) async throws {
+        try await executeGit(["add"] + paths)
+        invalidateCache()
+    }
+    
+    func unstage(paths: [String]) async throws {
+        try await executeGit(["reset", "HEAD"] + paths)
+        invalidateCache()
+    }
+    
+    func commit(message: String) async throws -> GitCommit {
+        let output = try await executeGit(["commit", "-m", message])
+        invalidateCache()
+        return try parseCommitOutput(output)
+    }
+    
+    func branches() async throws -> [GitBranch] {
+        let output = try await executeGit(["branch", "-a", "-v"])
+        return parseBranches(output)
+    }
+    
+    func checkout(branch: String) async throws {
+        try await executeGit(["checkout", branch])
+        invalidateCache()
+    }
+    
+    func createBranch(name: String, from: String? = nil) async throws {
+        var args = ["branch", name]
+        if let from = from {
+            args.append(from)
+        }
+        try await executeGit(args)
+    }
+    
+    func deleteBranch(name: String, force: Bool = false) async throws {
+        let flag = force ? "-D" : "-d"
+        try await executeGit(["branch", flag, name])
+    }
+    
+    func merge(branch: String) async throws -> MergeResult {
+        do {
+            let output = try await executeGit(["merge", branch])
+            return .success(message: output)
+        } catch let error as GitError {
+            if case .commandFailed(_, let output) = error,
+               output.contains("CONFLICT") {
+                let conflicts = try await parseConflicts()
+                return .conflict(files: conflicts)
+            }
+            throw error
+        }
+    }
+    
+    func stash(message: String? = nil) async throws {
+        var args = ["stash", "push"]
+        if let message = message {
+            args += ["-m", message]
+        }
+        try await executeGit(args)
+        invalidateCache()
+    }
+    
+    func stashList() async throws -> [GitStash] {
+        let output = try await executeGit(["stash", "list"])
+        return parseStashes(output)
+    }
+    
+    func stashPop(index: Int = 0) async throws {
+        try await executeGit(["stash", "pop", "stash@{\(index)}"])
+        invalidateCache()
+    }
+    
+    func diff(file: String? = nil, staged: Bool = false) async throws -> GitDiff {
+        var args = ["diff"]
+        if staged {
+            args.append("--cached")
+        }
+        if let file = file {
+            args.append(file)
+        }
+        let output = try await executeGit(args)
+        return parseDiff(output)
+    }
+    
+    func push(remote: String = "origin", branch: String? = nil) async throws {
+        var args = ["push", remote]
+        if let branch = branch {
+            args.append(branch)
+        }
+        try await executeGit(args)
+    }
+    
+    func pull(remote: String = "origin", branch: String? = nil) async throws {
+        var args = ["pull", remote]
+        if let branch = branch {
+            args.append(branch)
+        }
+        try await executeGit(args)
+        invalidateCache()
+    }
+    
+    // MARK: - Private Implementation
+    
+    private func invalidateCache() {
+        statusCache = nil
+        lastStatusCheck = nil
+    }
+}
+```
+
+## Shell Command Execution
+
+Execute git commands safely:
+
+```swift
+private func executeGit(_ arguments: [String]) async throws -> String {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+    process.arguments = arguments
+    process.currentDirectoryURL = URL(fileURLWithPath: projectPath)
+    
+    let outputPipe = Pipe()
+    let errorPipe = Pipe()
+    process.standardOutput = outputPipe
+    process.standardError = errorPipe
+    
+    try process.run()
+    process.waitUntilExit()
+    
+    let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+    let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+    
+    let output = String(data: outputData, encoding: .utf8) ?? ""
+    let error = String(data: errorData, encoding: .utf8) ?? ""
+    
+    guard process.terminationStatus == 0 else {
+        throw GitError.commandFailed(
+            command: "git \(arguments.joined(separator: " "))",
+            output: error.isEmpty ? output : error
+        )
+    }
+    
+    return output
+}
+```
+
+## Output Parsing
+
+Parse git command output into structured data:
+
+```swift
+private func fetchStatus() async throws -> GitStatus {
+    let output = try await executeGit(["status", "--porcelain", "-u"])
+    return parseStatus(output)
+}
+
+private func parseStatus(_ output: String) -> GitStatus {
+    var modified: [String] = []
+    var staged: [String] = []
+    var untracked: [String] = []
+    var deleted: [String] = []
+    
+    for line in output.split(separator: "\n") {
+        guard line.count >= 3 else { continue }
+        
+        let indexStatus = line[line.startIndex]
+        let workTreeStatus = line[line.index(after: line.startIndex)]
+        let filePath = String(line.dropFirst(3))
+        
+        // Staged changes
+        if indexStatus != " " && indexStatus != "?" {
+            staged.append(filePath)
+            if indexStatus == "D" {
+                deleted.append(filePath)
+            }
+        }
+        
+        // Working tree changes
+        if workTreeStatus == "M" {
+            modified.append(filePath)
+        } else if workTreeStatus == "D" {
+            deleted.append(filePath)
+        } else if workTreeStatus == "?" {
+            untracked.append(filePath)
+        }
+    }
+    
+    return GitStatus(
+        modified: modified,
+        staged: staged,
+        untracked: untracked,
+        deleted: deleted
+    )
+}
+
+private func parseBranches(_ output: String) -> [GitBranch] {
+    output.split(separator: "\n").compactMap { line in
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        
+        let isCurrent = trimmed.hasPrefix("*")
+        let isRemote = trimmed.contains("remotes/")
+        
+        // Extract branch name
+        var name = trimmed
+            .replacingOccurrences(of: "* ", with: "")
+            .replacingOccurrences(of: "  ", with: "")
+        
+        if let spaceIndex = name.firstIndex(of: " ") {
+            name = String(name[..<spaceIndex])
+        }
+        
+        if isRemote {
+            name = name.replacingOccurrences(of: "remotes/", with: "")
+        }
+        
+        return GitBranch(
+            name: name,
+            isCurrent: isCurrent,
+            isRemote: isRemote
+        )
+    }
+}
+
+private func parseDiff(_ output: String) -> GitDiff {
+    var hunks: [DiffHunk] = []
+    var currentFile: String?
+    var currentHunk: DiffHunk?
+    
+    for line in output.split(separator: "\n") {
+        let lineStr = String(line)
+        
+        if lineStr.hasPrefix("diff --git") {
+            // Save previous hunk
+            if let hunk = currentHunk {
+                hunks.append(hunk)
+            }
+            
+            // Extract file path
+            let parts = lineStr.split(separator: " ")
+            if parts.count >= 4 {
+                currentFile = String(parts[3]).replacingOccurrences(of: "b/", with: "")
+            }
+        } else if lineStr.hasPrefix("@@") {
+            // Save previous hunk
+            if let hunk = currentHunk {
+                hunks.append(hunk)
+            }
+            
+            // Start new hunk
+            currentHunk = DiffHunk(
+                file: currentFile ?? "",
+                header: lineStr,
+                lines: []
+            )
+        } else if var hunk = currentHunk {
+            // Add line to current hunk
+            let type: DiffLineType
+            if lineStr.hasPrefix("+") {
+                type = .addition
+            } else if lineStr.hasPrefix("-") {
+                type = .deletion
+            } else {
+                type = .context
+            }
+            
+            hunk.lines.append(DiffLine(
+                type: type,
+                content: lineStr
+            ))
+            currentHunk = hunk
+        }
+    }
+    
+    // Save last hunk
+    if let hunk = currentHunk {
+        hunks.append(hunk)
+    }
+    
+    return GitDiff(hunks: hunks)
+}
+```
+
+## Data Models
+
+Define clear data models for Git entities:
+
+```swift
+struct GitStatus {
+    let modified: [String]
+    let staged: [String]
+    let untracked: [String]
+    let deleted: [String]
+    
+    var hasChanges: Bool {
+        !modified.isEmpty || !staged.isEmpty || !untracked.isEmpty || !deleted.isEmpty
+    }
+}
+
+struct GitBranch: Identifiable {
+    let id = UUID()
+    let name: String
+    let isCurrent: Bool
+    let isRemote: Bool
+    
+    var displayName: String {
+        isRemote ? name : name
+    }
+}
+
+struct GitCommit: Identifiable {
+    let id: String  // SHA
+    let message: String
+    let author: String
+    let date: Date
+}
+
+struct GitDiff {
+    let hunks: [DiffHunk]
+}
+
+struct DiffHunk {
+    let file: String
+    let header: String
+    var lines: [DiffLine]
+}
+
+struct DiffLine {
+    let type: DiffLineType
+    let content: String
+}
+
+enum DiffLineType {
+    case addition
+    case deletion
+    case context
+}
+
+struct GitStash: Identifiable {
+    let id: Int
+    let message: String
+    let branch: String
+    let date: Date
+}
+
+enum MergeResult {
+    case success(message: String)
+    case conflict(files: [String])
+}
+```
+
+## Error Handling
+
+Define Git-specific errors:
+
+```swift
+enum GitError: LocalizedError {
+    case repositoryNotFound
+    case notARepository
+    case commandFailed(command: String, output: String)
+    case invalidBranch(String)
+    case mergeFailed(reason: String)
+    case conflictDetected(files: [String])
+    case nothingToCommit
+    case detachedHead
+    
+    var errorDescription: String? {
+        switch self {
+        case .repositoryNotFound:
+            return "Git repository not found at project path"
+        case .notARepository:
+            return "This directory is not a Git repository"
+        case .commandFailed(let command, let output):
+            return "Git command failed: \(command)\n\(output)"
+        case .invalidBranch(let name):
+            return "Invalid branch name: \(name)"
+        case .mergeFailed(let reason):
+            return "Merge failed: \(reason)"
+        case .conflictDetected(let files):
+            return "Merge conflicts in \(files.count) file(s)"
+        case .nothingToCommit:
+            return "No changes to commit"
+        case .detachedHead:
+            return "HEAD is detached. Please checkout a branch."
+        }
+    }
+}
+```
+
+## UI Integration
+
+Integrate GitService with SwiftUI:
+
+```swift
+@MainActor
+class GitViewModel: ObservableObject {
+    @Published var status: GitStatus?
+    @Published var branches: [GitBranch] = []
+    @Published var isLoading = false
+    @Published var error: Error?
+    
+    private let gitService: GitService
+    
+    init(projectPath: String) {
+        self.gitService = GitService(projectPath: projectPath)
+    }
+    
+    func loadStatus() async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            status = try await gitService.status()
+            error = nil
+        } catch {
+            self.error = error
+        }
+    }
+    
+    func loadBranches() async {
+        do {
+            branches = try await gitService.branches()
+        } catch {
+            self.error = error
+        }
+    }
+    
+    func stageFile(_ path: String) async {
+        do {
+            try await gitService.stage(paths: [path])
+            await loadStatus()
+        } catch {
+            self.error = error
+        }
+    }
+    
+    func commit(message: String) async {
+        do {
+            _ = try await gitService.commit(message: message)
+            await loadStatus()
+        } catch {
+            self.error = error
+        }
+    }
+}
+```
+
+## Worktree Support
+
+Implement Git worktree operations:
+
+```swift
+extension GitService {
+    func listWorktrees() async throws -> [GitWorktree] {
+        let output = try await executeGit(["worktree", "list", "--porcelain"])
+        return parseWorktrees(output)
+    }
+    
+    func addWorktree(path: String, branch: String, createBranch: Bool = false) async throws {
+        var args = ["worktree", "add"]
+        if createBranch {
+            args.append("-b")
+        }
+        args += [path, branch]
+        try await executeGit(args)
+    }
+    
+    func removeWorktree(path: String, force: Bool = false) async throws {
+        var args = ["worktree", "remove", path]
+        if force {
+            args.append("--force")
+        }
+        try await executeGit(args)
+    }
+    
+    private func parseWorktrees(_ output: String) -> [GitWorktree] {
+        var worktrees: [GitWorktree] = []
+        var current: [String: String] = [:]
+        
+        for line in output.split(separator: "\n") {
+            let lineStr = String(line)
+            
+            if lineStr.isEmpty {
+                if !current.isEmpty {
+                    if let path = current["worktree"],
+                       let branch = current["branch"] {
+                        worktrees.append(GitWorktree(
+                            path: path,
+                            branch: branch,
+                            isMain: current["bare"] != nil
+                        ))
+                    }
+                    current = [:]
+                }
+            } else {
+                let parts = lineStr.split(separator: " ", maxSplits: 1)
+                if parts.count == 2 {
+                    current[String(parts[0])] = String(parts[1])
+                }
+            }
+        }
+        
+        return worktrees
+    }
+}
+
+struct GitWorktree: Identifiable {
+    let id = UUID()
+    let path: String
+    let branch: String
+    let isMain: Bool
+}
+```
+
+## Performance Considerations
+
+- Cache status for 2 seconds to avoid excessive git calls
+- Use `--porcelain` flag for machine-readable output
+- Run git commands asynchronously
+- Invalidate cache after mutations
+- Use lazy loading for large diffs

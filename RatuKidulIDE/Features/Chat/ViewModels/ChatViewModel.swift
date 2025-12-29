@@ -119,7 +119,7 @@ final class ChatViewModel {
             predicate: #Predicate { $0.id == chatId }
         )
         chat = try? modelContext.fetch(chatDescriptor).first
-
+        
         // Set project root for tools ASAP (required for sandboxed tool access)
         if let projectRoot = chat?.project?.path, !projectRoot.isEmpty {
             setProjectPath(projectRoot)
@@ -419,8 +419,8 @@ final class ChatViewModel {
                                 initiatingUserMessage: userMessage
                             )
                         } else {
-                            message.text = fullText
-                            message.state = .complete
+                        message.text = fullText
+                        message.state = .complete
                             message.tokenCount = await self.tokenCounter.estimateTokens(fullText)
                             try? self.modelContext.save()
                             
@@ -498,7 +498,7 @@ final class ChatViewModel {
         message.text += "\n\n" + toolResultsText
         
         // Store tool calls in message
-        message.toolCalls = try? JSONEncoder().encode(toolCalls)
+                            message.toolCalls = try? JSONEncoder().encode(toolCalls)
 
         // Only continue if the user explicitly asked to continue the previous chain.
         if userExplicitlyWantsToContinue(initiatingUserMessage) {

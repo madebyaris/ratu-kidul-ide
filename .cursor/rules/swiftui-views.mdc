@@ -1,0 +1,495 @@
+---
+description: SwiftUI view patterns and best practices for Ratu Kidul IDE
+globs: ["**/Views/**/*.swift", "**/Features/**/*View.swift"]
+alwaysApply: true
+---
+
+# SwiftUI View Patterns
+
+## View Composition
+
+Break down complex views into smaller, reusable components:
+
+```swift
+// Bad: Monolithic view
+struct ChatView: View {
+    var body: some View {
+        VStack {
+            // 100+ lines of UI code
+        }
+    }
+}
+
+// Good: Composed from smaller views
+struct ChatView: View {
+    var body: some View {
+        VStack {
+            messageListView
+            inputBar
+        }
+    }
+    
+    private var messageListView: some View {
+        ScrollView {
+            LazyVStack {
+                ForEach(messages) { message in
+                    MessageBubble(message: message)
+                }
+            }
+        }
+    }
+    
+    private var inputBar: some View {
+        ChatInputView(onSend: handleSend)
+    }
+}
+```
+
+**Guidelines:**
+- Keep `body` under 10 lines
+- Extract repeated UI patterns into separate views
+- Use computed properties for simple subviews
+- Create separate struct views for complex subviews
+
+## State Management
+
+Use the appropriate property wrapper for each use case:
+
+```swift
+struct ContentView: View {
+    // @State: Local view state
+    @State private var isExpanded = false
+    @State private var searchText = ""
+    
+    // @Binding: Two-way binding to parent's state
+    @Binding var selectedItem: Item?
+    
+    // @StateObject: Create and own an ObservableObject
+    @StateObject private var viewModel = ChatViewModel()
+    
+    // @ObservedObject: Observe an ObservableObject owned elsewhere
+    @ObservedObject var sharedSettings: Settings
+    
+    // @EnvironmentObject: Access shared object from environment
+    @EnvironmentObject var appState: AppState
+    
+    // @Environment: Access system or custom environment values
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
+    
+    var body: some View {
+        // View code
+    }
+}
+```
+
+**Rules:**
+- Use `@State` for simple local state (Bool, String, Int)
+- Use `@StateObject` when creating a view model
+- Use `@ObservedObject` when receiving a view model from parent
+- Use `@EnvironmentObject` for app-wide state
+- Always mark `@State` and `@StateObject` as `private`
+
+## View Modifiers
+
+Apply modifiers in a consistent order:
+
+```swift
+Text("Hello")
+    // 1. Layout modifiers
+    .frame(width: 200, height: 50)
+    .padding()
+    
+    // 2. Appearance modifiers
+    .font(.headline)
+    .foregroundStyle(.primary)
+    .background(.blue)
+    .cornerRadius(8)
+    
+    // 3. Interaction modifiers
+    .onTapGesture { }
+    .disabled(isLoading)
+    
+    // 4. Accessibility modifiers
+    .accessibilityLabel("Greeting")
+    .accessibilityHint("Double tap to edit")
+```
+
+## Conditional Content
+
+Use ViewBuilder for conditional views:
+
+```swift
+// Good: ViewBuilder pattern
+@ViewBuilder
+var content: some View {
+    if isLoading {
+        ProgressView()
+    } else if let data = data {
+        DataView(data: data)
+    } else {
+        EmptyStateView()
+    }
+}
+
+// Also good: Inline conditionals for simple cases
+var body: some View {
+    VStack {
+        if showHeader {
+            HeaderView()
+        }
+        
+        ContentView()
+    }
+}
+
+// Avoid: Ternary for complex views
+var body: some View {
+    isLoading ? AnyView(ProgressView()) : AnyView(ContentView())
+}
+```
+
+## Lists and ForEach
+
+Use appropriate list types:
+
+```swift
+// List for simple, uniform rows
+List(items) { item in
+    ItemRow(item: item)
+}
+
+// LazyVStack for custom scrolling with lazy loading
+ScrollView {
+    LazyVStack(spacing: 8) {
+        ForEach(items) { item in
+            ItemCard(item: item)
+        }
+    }
+}
+
+// ForEach with indices when you need the index
+ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+    ItemRow(item: item, index: index)
+}
+
+// Use sections for grouped content
+List {
+    Section("Recent") {
+        ForEach(recentItems) { item in
+            ItemRow(item: item)
+        }
+    }
+    
+    Section("Archived") {
+        ForEach(archivedItems) { item in
+            ItemRow(item: item)
+        }
+    }
+}
+```
+
+## Async Operations in Views
+
+Handle async operations properly:
+
+```swift
+struct DataView: View {
+    @State private var data: [Item] = []
+    @State private var isLoading = false
+    @State private var error: Error?
+    
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView()
+            } else if let error = error {
+                ErrorView(error: error, retry: loadData)
+            } else {
+                ItemList(items: data)
+            }
+        }
+        .task {
+            await loadData()
+        }
+    }
+    
+    private func loadData() async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            data = try await dataService.fetch()
+            error = nil
+        } catch {
+            self.error = error
+        }
+    }
+}
+```
+
+**Best Practices:**
+- Use `.task` modifier for async work on appear
+- Show loading states
+- Handle errors gracefully
+- Provide retry mechanisms
+
+## Navigation
+
+Use NavigationStack for modern navigation:
+
+```swift
+struct MainView: View {
+    @State private var path = NavigationPath()
+    
+    var body: some View {
+        NavigationStack(path: $path) {
+            ListView()
+                .navigationDestination(for: Item.self) { item in
+                    DetailView(item: item)
+                }
+                .navigationTitle("Items")
+        }
+    }
+}
+
+// For programmatic navigation
+func navigateToDetail(_ item: Item) {
+    path.append(item)
+}
+
+// For sheets and popovers
+struct ContentView: View {
+    @State private var showingSheet = false
+    @State private var showingPopover = false
+    
+    var body: some View {
+        Button("Show Sheet") {
+            showingSheet = true
+        }
+        .sheet(isPresented: $showingSheet) {
+            SheetContent()
+        }
+        .popover(isPresented: $showingPopover) {
+            PopoverContent()
+        }
+    }
+}
+```
+
+## Previews
+
+Provide comprehensive previews:
+
+```swift
+#Preview("Default") {
+    ChatView(chat: .sample)
+}
+
+#Preview("Loading") {
+    ChatView(chat: .sample)
+        .environment(\.isLoading, true)
+}
+
+#Preview("Error State") {
+    ChatView(chat: .sample)
+        .environment(\.error, SampleError.networkFailed)
+}
+
+#Preview("Dark Mode") {
+    ChatView(chat: .sample)
+        .preferredColorScheme(.dark)
+}
+
+// Preview with dependencies
+#Preview {
+    ChatView(chat: .sample)
+        .environment(\.modelContext, PreviewContainer.shared.mainContext)
+        .environmentObject(AppState.preview)
+}
+```
+
+## Accessibility
+
+Make all views accessible:
+
+```swift
+Button(action: deleteItem) {
+    Image(systemName: "trash")
+}
+.accessibilityLabel("Delete item")
+.accessibilityHint("Removes this item from the list")
+
+// For custom controls
+var body: some View {
+    HStack {
+        Circle()
+            .fill(isOnline ? .green : .gray)
+            .frame(width: 12, height: 12)
+        Text(user.name)
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("\(user.name), \(isOnline ? "online" : "offline")")
+}
+
+// For decorative elements
+Image("background-pattern")
+    .accessibilityHidden(true)
+```
+
+## Performance Optimization
+
+```swift
+// Use LazyVStack/LazyHStack for large lists
+ScrollView {
+    LazyVStack {
+        ForEach(items) { item in
+            ItemView(item: item)
+        }
+    }
+}
+
+// Use equatable to prevent unnecessary redraws
+struct ItemView: View, Equatable {
+    let item: Item
+    
+    static func == (lhs: ItemView, rhs: ItemView) -> Bool {
+        lhs.item.id == rhs.item.id
+    }
+    
+    var body: some View {
+        // View code
+    }
+}
+
+// Use in parent view
+ItemView(item: item)
+    .equatable()
+
+// Avoid expensive computations in body
+struct ChartView: View {
+    let data: [DataPoint]
+    
+    // Bad: Computed in body every render
+    var body: some View {
+        let processedData = expensiveProcessing(data)
+        Chart(data: processedData)
+    }
+    
+    // Good: Cached
+    private var processedData: [ProcessedPoint] {
+        expensiveProcessing(data)
+    }
+    
+    var body: some View {
+        Chart(data: processedData)
+    }
+}
+```
+
+## Custom View Modifiers
+
+Create reusable view modifiers:
+
+```swift
+struct CardStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding()
+            .background(.background)
+            .cornerRadius(12)
+            .shadow(radius: 2)
+    }
+}
+
+extension View {
+    func cardStyle() -> some View {
+        modifier(CardStyle())
+    }
+}
+
+// Usage
+Text("Hello")
+    .cardStyle()
+```
+
+## Animations
+
+Use animations appropriately:
+
+```swift
+struct AnimatedView: View {
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack {
+            HeaderView()
+            
+            if isExpanded {
+                DetailView()
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.3), value: isExpanded)
+    }
+}
+
+// Explicit animations for specific changes
+Button("Toggle") {
+    withAnimation(.easeInOut(duration: 0.2)) {
+        isExpanded.toggle()
+    }
+}
+```
+
+## Environment Values
+
+Define custom environment values:
+
+```swift
+private struct ProjectPathKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
+extension EnvironmentValues {
+    var projectPath: String? {
+        get { self[ProjectPathKey.self] }
+        set { self[ProjectPathKey.self] = newValue }
+    }
+}
+
+// Usage
+SomeView()
+    .environment(\.projectPath, "/path/to/project")
+
+// In child view
+@Environment(\.projectPath) private var projectPath
+```
+
+## View Lifecycle
+
+Handle lifecycle events properly:
+
+```swift
+struct ContentView: View {
+    var body: some View {
+        Text("Content")
+            .onAppear {
+                // Called when view appears
+                loadInitialData()
+            }
+            .onDisappear {
+                // Called when view disappears
+                cleanup()
+            }
+            .task {
+                // Async work, automatically cancelled on disappear
+                await loadData()
+            }
+            .task(id: selectedItem) {
+                // Re-run when selectedItem changes
+                await loadDetails(for: selectedItem)
+            }
+    }
+}
+```

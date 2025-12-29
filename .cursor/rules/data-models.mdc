@@ -1,0 +1,542 @@
+---
+description: SwiftData model patterns and best practices for Ratu Kidul IDE
+globs: ["**/Data/Models/**/*.swift"]
+alwaysApply: true
+---
+
+# SwiftData Model Patterns
+
+## Model Definition
+
+Define SwiftData models with proper attributes:
+
+```swift
+import SwiftData
+import Foundation
+
+@Model
+final class Chat {
+    // MARK: - Properties
+    
+    // Unique identifier
+    @Attribute(.unique) var id: String
+    
+    // Basic properties
+    var title: String?
+    var createdAt: Date
+    var updatedAt: Date?
+    
+    // Flags
+    var isPinned: Bool
+    var isQuickChat: Bool
+    var isNewChat: Bool
+    
+    // Optional properties
+    var summary: String?
+    var contextSummary: String?
+    
+    // Computed values
+    var totalTokensUsed: Int
+    
+    // MARK: - Relationships
+    
+    // One-to-many: Chat has many messages
+    @Relationship(deleteRule: .cascade, inverse: \Message.chat)
+    var messages: [Message]
+    
+    // Many-to-one: Chat belongs to project
+    @Relationship(inverse: \Project.chats)
+    var project: Project?
+    
+    // Optional self-referencing relationship
+    @Relationship
+    var parentChat: Chat?
+    
+    // MARK: - Initialization
+    
+    init(id: String = UUID().uuidString) {
+        self.id = id
+        self.createdAt = Date()
+        self.isPinned = false
+        self.isQuickChat = false
+        self.isNewChat = true
+        self.messages = []
+        self.totalTokensUsed = 0
+    }
+}
+```
+
+**Key Guidelines:**
+- Mark class as `final` (required for @Model)
+- Use `@Attribute(.unique)` for unique identifiers
+- Initialize all non-optional properties
+- Use `@Relationship` for relationships with proper delete rules
+- Provide default initializer
+
+## Attribute Options
+
+Use appropriate attribute options:
+
+```swift
+@Model
+final class Message {
+    // Unique identifier
+    @Attribute(.unique) var id: String
+    
+    // Indexed for faster queries
+    @Attribute(.indexed) var createdAt: Date
+    
+    // Store as external binary data
+    @Attribute(.externalStorage) var largeContent: Data?
+    
+    // Transformable for custom types
+    @Attribute(.transformable(by: "AttachmentTransformer"))
+    var customData: CustomType?
+    
+    // Original name if property is renamed
+    @Attribute(originalName: "oldPropertyName")
+    var newPropertyName: String
+}
+```
+
+## Relationships
+
+Define relationships with proper delete rules:
+
+```swift
+@Model
+final class Project {
+    @Attribute(.unique) var id: String
+    var name: String
+    
+    // One-to-many with cascade delete
+    // When project is deleted, all chats are deleted
+    @Relationship(deleteRule: .cascade, inverse: \Chat.project)
+    var chats: [Chat]
+    
+    init(name: String) {
+        self.id = UUID().uuidString
+        self.name = name
+        self.chats = []
+    }
+}
+
+@Model
+final class Chat {
+    @Attribute(.unique) var id: String
+    
+    // Many-to-one
+    @Relationship(inverse: \Project.chats)
+    var project: Project?
+    
+    // One-to-many with cascade
+    @Relationship(deleteRule: .cascade, inverse: \Message.chat)
+    var messages: [Message]
+}
+
+@Model
+final class Message {
+    @Attribute(.unique) var id: String
+    
+    // Many-to-one
+    @Relationship(inverse: \Chat.messages)
+    var chat: Chat?
+}
+```
+
+**Delete Rules:**
+- `.cascade`: Delete related objects when parent is deleted
+- `.nullify`: Set relationship to nil (default)
+- `.deny`: Prevent deletion if relationship exists
+- `.noAction`: Do nothing (use with caution)
+
+## Querying Models
+
+Use FetchDescriptor for queries:
+
+```swift
+// Basic query
+let descriptor = FetchDescriptor<Chat>()
+let allChats = try modelContext.fetch(descriptor)
+
+// With predicate
+let descriptor = FetchDescriptor<Chat>(
+    predicate: #Predicate { chat in
+        chat.project?.id == projectId
+    }
+)
+let projectChats = try modelContext.fetch(descriptor)
+
+// With sorting
+let descriptor = FetchDescriptor<Chat>(
+    sortBy: [SortDescriptor(\Chat.updatedAt, order: .reverse)]
+)
+let sortedChats = try modelContext.fetch(descriptor)
+
+// Complex predicate
+let descriptor = FetchDescriptor<Chat>(
+    predicate: #Predicate { chat in
+        chat.isPinned == true && 
+        chat.project?.id == projectId &&
+        chat.title?.contains(searchText) == true
+    },
+    sortBy: [
+        SortDescriptor(\Chat.isPinned, order: .reverse),
+        SortDescriptor(\Chat.updatedAt, order: .reverse)
+    ]
+)
+
+// With limit
+var descriptor = FetchDescriptor<Chat>(
+    sortBy: [SortDescriptor(\Chat.createdAt, order: .reverse)]
+)
+descriptor.fetchLimit = 10
+let recentChats = try modelContext.fetch(descriptor)
+```
+
+## SwiftUI Integration
+
+Use @Query in SwiftUI views:
+
+```swift
+struct ChatListView: View {
+    // Simple query
+    @Query private var allChats: [Chat]
+    
+    // With sorting
+    @Query(sort: \Chat.updatedAt, order: .reverse)
+    private var sortedChats: [Chat]
+    
+    // With predicate (requires init)
+    @Query private var projectChats: [Chat]
+    
+    init(projectId: String) {
+        let predicate = #Predicate<Chat> { chat in
+            chat.project?.id == projectId
+        }
+        _projectChats = Query(filter: predicate, sort: \.updatedAt, order: .reverse)
+    }
+    
+    var body: some View {
+        List(projectChats) { chat in
+            ChatRow(chat: chat)
+        }
+    }
+}
+```
+
+## Model Context Operations
+
+Perform CRUD operations:
+
+```swift
+// Access model context
+@Environment(\.modelContext) private var modelContext
+
+// Create
+func createChat(for project: Project) {
+    let chat = Chat()
+    chat.project = project
+    modelContext.insert(chat)
+    try? modelContext.save()
+}
+
+// Read
+func fetchChat(id: String) -> Chat? {
+    let descriptor = FetchDescriptor<Chat>(
+        predicate: #Predicate { $0.id == id }
+    )
+    return try? modelContext.fetch(descriptor).first
+}
+
+// Update
+func updateChat(_ chat: Chat, title: String) {
+    chat.title = title
+    chat.updatedAt = Date()
+    try? modelContext.save()
+}
+
+// Delete
+func deleteChat(_ chat: Chat) {
+    modelContext.delete(chat)
+    try? modelContext.save()
+}
+
+// Batch delete
+func deleteAllChats(for projectId: String) throws {
+    let descriptor = FetchDescriptor<Chat>(
+        predicate: #Predicate { $0.project?.id == projectId }
+    )
+    let chats = try modelContext.fetch(descriptor)
+    for chat in chats {
+        modelContext.delete(chat)
+    }
+    try modelContext.save()
+}
+```
+
+## Migrations
+
+Handle schema changes with migrations:
+
+```swift
+// Version 1: Initial schema
+enum SchemaV1: VersionedSchema {
+    static var versionIdentifier = Schema.Version(1, 0, 0)
+    
+    static var models: [any PersistentModel.Type] {
+        [Chat.self, Message.self, Project.self]
+    }
+    
+    @Model
+    final class Chat {
+        var id: String
+        var title: String?
+        var createdAt: Date
+        
+        init(id: String = UUID().uuidString) {
+            self.id = id
+            self.createdAt = Date()
+        }
+    }
+}
+
+// Version 2: Add new property
+enum SchemaV2: VersionedSchema {
+    static var versionIdentifier = Schema.Version(2, 0, 0)
+    
+    static var models: [any PersistentModel.Type] {
+        [Chat.self, Message.self, Project.self]
+    }
+    
+    @Model
+    final class Chat {
+        var id: String
+        var title: String?
+        var createdAt: Date
+        var updatedAt: Date?  // New property
+        
+        init(id: String = UUID().uuidString) {
+            self.id = id
+            self.createdAt = Date()
+        }
+    }
+}
+
+// Migration plan
+enum ChatMigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [SchemaV1.self, SchemaV2.self]
+    }
+    
+    static var stages: [MigrationStage] {
+        [
+            migrateV1toV2
+        ]
+    }
+    
+    static let migrateV1toV2 = MigrationStage.custom(
+        fromVersion: SchemaV1.self,
+        toVersion: SchemaV2.self,
+        willMigrate: nil,
+        didMigrate: { context in
+            // Set updatedAt to createdAt for existing records
+            let chats = try context.fetch(FetchDescriptor<Chat>())
+            for chat in chats {
+                chat.updatedAt = chat.createdAt
+            }
+            try context.save()
+        }
+    )
+}
+
+// Use in app
+let container = try ModelContainer(
+    for: Chat.self, Message.self, Project.self,
+    migrationPlan: ChatMigrationPlan.self
+)
+```
+
+## Computed Properties
+
+Use computed properties for derived values:
+
+```swift
+@Model
+final class Chat {
+    var messages: [Message]
+    
+    // Computed property (not stored)
+    var messageCount: Int {
+        messages.count
+    }
+    
+    var lastMessage: Message? {
+        messages.sorted(by: { $0.createdAt > $1.createdAt }).first
+    }
+    
+    var hasUnreadMessages: Bool {
+        messages.contains { !$0.isRead }
+    }
+}
+```
+
+## Transient Properties
+
+Mark properties that shouldn't be persisted:
+
+```swift
+@Model
+final class Chat {
+    var id: String
+    var messages: [Message]
+    
+    // Transient: Not persisted
+    @Transient var isLoading: Bool = false
+    @Transient var error: Error?
+    
+    // Use for UI state
+    @Transient var isSelected: Bool = false
+}
+```
+
+## Custom Codable
+
+Implement custom encoding/decoding if needed:
+
+```swift
+@Model
+final class Chat: Codable {
+    var id: String
+    var title: String?
+    var createdAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, title, createdAt
+    }
+    
+    required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.title = try container.decodeIfPresent(String.self, forKey: .title)
+        self.createdAt = try container.decode(Date.self, forKey: .createdAt)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(title, forKey: .title)
+        try container.encode(createdAt, forKey: .createdAt)
+    }
+}
+```
+
+## Model Container Setup
+
+Configure model container in app:
+
+```swift
+@main
+struct RatuKidulApp: App {
+    let modelContainer: ModelContainer
+    
+    init() {
+        let schema = Schema([
+            Chat.self,
+            Message.self,
+            Project.self,
+            ModelConfig.self,
+            Attachment.self
+        ])
+        
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            allowsSave: true
+        )
+        
+        do {
+            modelContainer = try ModelContainer(
+                for: schema,
+                configurations: [modelConfiguration]
+            )
+        } catch {
+            fatalError("Could not create ModelContainer: \(error)")
+        }
+    }
+    
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .modelContainer(modelContainer)
+        }
+    }
+}
+```
+
+## Testing with SwiftData
+
+Create in-memory container for tests:
+
+```swift
+final class ChatTests: XCTestCase {
+    var modelContainer: ModelContainer!
+    var modelContext: ModelContext!
+    
+    override func setUp() async throws {
+        let schema = Schema([Chat.self, Message.self, Project.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        modelContainer = try ModelContainer(for: schema, configurations: [config])
+        modelContext = modelContainer.mainContext
+    }
+    
+    func testCreateChat() throws {
+        let chat = Chat()
+        chat.title = "Test Chat"
+        modelContext.insert(chat)
+        try modelContext.save()
+        
+        let descriptor = FetchDescriptor<Chat>()
+        let chats = try modelContext.fetch(descriptor)
+        
+        XCTAssertEqual(chats.count, 1)
+        XCTAssertEqual(chats.first?.title, "Test Chat")
+    }
+}
+```
+
+## Performance Best Practices
+
+```swift
+// Use batch operations for large datasets
+func deleteOldChats() throws {
+    let cutoffDate = Calendar.current.date(byAdding: .month, value: -6, to: Date())!
+    
+    let descriptor = FetchDescriptor<Chat>(
+        predicate: #Predicate { $0.createdAt < cutoffDate }
+    )
+    
+    let oldChats = try modelContext.fetch(descriptor)
+    for chat in oldChats {
+        modelContext.delete(chat)
+    }
+    
+    try modelContext.save()
+}
+
+// Use fetchLimit for pagination
+func fetchRecentChats(limit: Int, offset: Int) throws -> [Chat] {
+    var descriptor = FetchDescriptor<Chat>(
+        sortBy: [SortDescriptor(\Chat.createdAt, order: .reverse)]
+    )
+    descriptor.fetchLimit = limit
+    descriptor.fetchOffset = offset
+    
+    return try modelContext.fetch(descriptor)
+}
+
+// Prefetch relationships to avoid N+1 queries
+var descriptor = FetchDescriptor<Chat>()
+descriptor.relationshipKeyPathsForPrefetching = [\.messages, \.project]
+let chats = try modelContext.fetch(descriptor)
+```

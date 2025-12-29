@@ -1,0 +1,620 @@
+---
+description: Swift concurrency patterns (async/await, actors) for Ratu Kidul IDE
+globs: ["**/*.swift"]
+alwaysApply: true
+---
+
+# Swift Concurrency Patterns
+
+## Async/Await Basics
+
+Use async/await for asynchronous operations:
+
+```swift
+// Async function
+func fetchData() async throws -> Data {
+    let url = URL(string: "https://api.example.com/data")!
+    let (data, _) = try await URLSession.shared.data(from: url)
+    return data
+}
+
+// Calling async functions
+func loadData() async {
+    do {
+        let data = try await fetchData()
+        print("Loaded \(data.count) bytes")
+    } catch {
+        print("Error: \(error)")
+    }
+}
+
+// Multiple concurrent operations
+func loadMultipleResources() async throws -> (Data, Data, Data) {
+    async let data1 = fetchData(from: url1)
+    async let data2 = fetchData(from: url2)
+    async let data3 = fetchData(from: url3)
+    
+    return try await (data1, data2, data3)
+}
+```
+
+**Guidelines:**
+- Prefer async/await over completion handlers
+- Use `async let` for concurrent operations
+- Mark throwing functions with `async throws`
+- Avoid blocking the thread with synchronous code
+
+## Actors for Thread Safety
+
+Use actors to protect mutable state:
+
+```swift
+actor ChatService {
+    // MARK: - Properties (automatically protected)
+    private var cache: [String: Chat] = [:]
+    private var activeRequests: Set<String> = []
+    
+    // MARK: - Public API
+    
+    func getChat(id: String) async throws -> Chat {
+        // Check cache first
+        if let cached = cache[id] {
+            return cached
+        }
+        
+        // Prevent duplicate requests
+        guard !activeRequests.contains(id) else {
+            // Wait and retry
+            try await Task.sleep(nanoseconds: 100_000_000)
+            return try await getChat(id: id)
+        }
+        
+        activeRequests.insert(id)
+        defer { activeRequests.remove(id) }
+        
+        // Fetch from database
+        let chat = try await fetchFromDatabase(id: id)
+        cache[id] = chat
+        return chat
+    }
+    
+    func invalidateCache() {
+        cache.removeAll()
+    }
+    
+    // MARK: - Private Implementation
+    
+    private func fetchFromDatabase(id: String) async throws -> Chat {
+        // Database access
+    }
+}
+```
+
+**Actor Benefits:**
+- Automatic synchronization of mutable state
+- No need for locks or semaphores
+- Compiler-enforced thread safety
+- Async access to properties and methods
+
+## MainActor for UI Updates
+
+Use @MainActor for UI-related code:
+
+```swift
+@MainActor
+class ChatViewModel: ObservableObject {
+    // All properties and methods run on main thread
+    @Published var messages: [Message] = []
+    @Published var isLoading = false
+    @Published var error: Error?
+    
+    private let chatService: ChatService
+    
+    init(chatService: ChatService) {
+        self.chatService = chatService
+    }
+    
+    func loadMessages() async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            // Service call happens off main thread
+            let chat = try await chatService.getChat(id: chatId)
+            
+            // Assignment happens on main thread (automatic)
+            messages = chat.messages
+            error = nil
+        } catch {
+            self.error = error
+        }
+    }
+    
+    // Explicitly run on main thread
+    @MainActor
+    func updateUI() {
+        // UI updates
+    }
+}
+
+// Call from background
+Task {
+    await viewModel.loadMessages()  // Automatically switches to main thread
+}
+```
+
+**MainActor Guidelines:**
+- Mark ViewModels with `@MainActor`
+- All `@Published` properties should be on MainActor
+- SwiftUI views are implicitly `@MainActor`
+- Use for any UI-related code
+
+## Task Management
+
+Manage async tasks properly:
+
+```swift
+struct ContentView: View {
+    @State private var data: Data?
+    @State private var loadTask: Task<Void, Never>?
+    
+    var body: some View {
+        Text("Content")
+            .task {
+                // Automatically cancelled when view disappears
+                await loadData()
+            }
+            .onDisappear {
+                // Manual cancellation if needed
+                loadTask?.cancel()
+            }
+    }
+    
+    func loadData() async {
+        do {
+            data = try await fetchData()
+        } catch {
+            print("Error: \(error)")
+        }
+    }
+}
+
+// Creating tasks manually
+func startBackgroundWork() {
+    Task {
+        await doWork()
+    }
+    
+    // With priority
+    Task(priority: .background) {
+        await doBackgroundWork()
+    }
+    
+    // Detached task (doesn't inherit context)
+    Task.detached {
+        await doIndependentWork()
+    }
+}
+```
+
+## Task Cancellation
+
+Handle task cancellation:
+
+```swift
+func processLargeDataset() async throws {
+    for item in largeDataset {
+        // Check for cancellation
+        try Task.checkCancellation()
+        
+        // Or use isCancelled
+        guard !Task.isCancelled else {
+            throw CancellationError()
+        }
+        
+        await processItem(item)
+    }
+}
+
+// Cancellable operation
+func fetchWithTimeout() async throws -> Data {
+    try await withThrowingTaskGroup(of: Data.self) { group in
+        // Add fetch task
+        group.addTask {
+            try await fetchData()
+        }
+        
+        // Add timeout task
+        group.addTask {
+            try await Task.sleep(nanoseconds: 5_000_000_000)
+            throw TimeoutError()
+        }
+        
+        // Return first result
+        let result = try await group.next()!
+        group.cancelAll()
+        return result
+    }
+}
+```
+
+## Task Groups
+
+Use task groups for structured concurrency:
+
+```swift
+func processFiles(_ files: [URL]) async throws -> [ProcessedFile] {
+    try await withThrowingTaskGroup(of: ProcessedFile.self) { group in
+        // Add tasks for each file
+        for file in files {
+            group.addTask {
+                try await processFile(file)
+            }
+        }
+        
+        // Collect results
+        var results: [ProcessedFile] = []
+        for try await result in group {
+            results.append(result)
+        }
+        return results
+    }
+}
+
+// With limited concurrency
+func processFilesWithLimit(_ files: [URL], maxConcurrent: Int) async throws -> [ProcessedFile] {
+    try await withThrowingTaskGroup(of: ProcessedFile.self) { group in
+        var results: [ProcessedFile] = []
+        var index = 0
+        
+        // Start initial batch
+        for _ in 0..<min(maxConcurrent, files.count) {
+            group.addTask {
+                try await processFile(files[index])
+            }
+            index += 1
+        }
+        
+        // Process results and add new tasks
+        for try await result in group {
+            results.append(result)
+            
+            if index < files.count {
+                group.addTask {
+                    try await processFile(files[index])
+                }
+                index += 1
+            }
+        }
+        
+        return results
+    }
+}
+```
+
+## AsyncSequence
+
+Work with async sequences:
+
+```swift
+// Consuming async sequence
+func processStream() async throws {
+    let stream = URLSession.shared.bytes(from: url)
+    
+    for try await byte in stream.0 {
+        processByte(byte)
+    }
+}
+
+// Creating async sequence
+struct FileLineSequence: AsyncSequence {
+    typealias Element = String
+    let fileURL: URL
+    
+    func makeAsyncIterator() -> AsyncIterator {
+        AsyncIterator(fileURL: fileURL)
+    }
+    
+    struct AsyncIterator: AsyncIteratorProtocol {
+        let fileURL: URL
+        private var fileHandle: FileHandle?
+        private var buffer: Data = Data()
+        
+        mutating func next() async throws -> String? {
+            if fileHandle == nil {
+                fileHandle = try FileHandle(forReadingFrom: fileURL)
+            }
+            
+            // Read and return next line
+            // Implementation details...
+        }
+    }
+}
+
+// Usage
+for try await line in FileLineSequence(fileURL: url) {
+    print(line)
+}
+```
+
+## Continuations
+
+Bridge callback-based APIs to async/await:
+
+```swift
+// Checked continuation (throws on misuse)
+func legacyFetch() async throws -> Data {
+    try await withCheckedThrowingContinuation { continuation in
+        legacyAPI.fetch { result in
+            switch result {
+            case .success(let data):
+                continuation.resume(returning: data)
+            case .failure(let error):
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+}
+
+// Unsafe continuation (better performance, no safety checks)
+func legacyFetchUnsafe() async throws -> Data {
+    try await withUnsafeThrowingContinuation { continuation in
+        legacyAPI.fetch { result in
+            switch result {
+            case .success(let data):
+                continuation.resume(returning: data)
+            case .failure(let error):
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+}
+```
+
+## Actor Isolation
+
+Understand actor isolation:
+
+```swift
+actor DataStore {
+    private var data: [String: Any] = [:]
+    
+    // Isolated to actor (async access required)
+    func get(key: String) -> Any? {
+        data[key]
+    }
+    
+    // Isolated to actor
+    func set(key: String, value: Any) {
+        data[key] = value
+    }
+    
+    // Non-isolated (can be called synchronously)
+    nonisolated func description() -> String {
+        "DataStore"
+    }
+}
+
+// Usage
+let store = DataStore()
+
+// Async access required
+Task {
+    await store.set(key: "name", value: "John")
+    let value = await store.get(key: "name")
+}
+
+// Synchronous access allowed
+let desc = store.description()
+```
+
+## Sendable Protocol
+
+Ensure types are safe to send across concurrency boundaries:
+
+```swift
+// Struct is automatically Sendable (value type)
+struct User: Sendable {
+    let id: String
+    let name: String
+}
+
+// Class must be explicitly marked and meet requirements
+final class ImmutableConfig: Sendable {
+    let apiKey: String
+    let baseURL: URL
+    
+    init(apiKey: String, baseURL: URL) {
+        self.apiKey = apiKey
+        self.baseURL = baseURL
+    }
+}
+
+// Actor is implicitly Sendable
+actor UserCache: Sendable {
+    private var users: [String: User] = [:]
+}
+
+// Non-Sendable type (mutable class)
+class MutableState {
+    var value: Int = 0
+}
+
+// Compiler error: cannot send non-Sendable type
+func badExample() {
+    let state = MutableState()
+    Task {
+        // Error: MutableState is not Sendable
+        state.value = 42
+    }
+}
+```
+
+## Common Patterns
+
+### Service with Actor
+
+```swift
+actor NetworkService {
+    private let session: URLSession
+    private var cache: [URL: Data] = [:]
+    
+    init(session: URLSession = .shared) {
+        self.session = session
+    }
+    
+    func fetch(from url: URL, useCache: Bool = true) async throws -> Data {
+        if useCache, let cached = cache[url] {
+            return cached
+        }
+        
+        let (data, _) = try await session.data(from: url)
+        cache[url] = data
+        return data
+    }
+    
+    func clearCache() {
+        cache.removeAll()
+    }
+}
+```
+
+### ViewModel with MainActor
+
+```swift
+@MainActor
+class ListViewModel: ObservableObject {
+    @Published var items: [Item] = []
+    @Published var isLoading = false
+    @Published var error: Error?
+    
+    private let service: ItemService
+    
+    init(service: ItemService) {
+        self.service = service
+    }
+    
+    func loadItems() async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            items = try await service.fetchItems()
+            error = nil
+        } catch {
+            self.error = error
+        }
+    }
+    
+    func deleteItem(_ item: Item) async {
+        do {
+            try await service.delete(item)
+            items.removeAll { $0.id == item.id }
+        } catch {
+            self.error = error
+        }
+    }
+}
+```
+
+### Debounced Search
+
+```swift
+@MainActor
+class SearchViewModel: ObservableObject {
+    @Published var searchText = ""
+    @Published var results: [Result] = []
+    
+    private var searchTask: Task<Void, Never>?
+    
+    func search() {
+        // Cancel previous search
+        searchTask?.cancel()
+        
+        // Debounce
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            
+            guard !Task.isCancelled else { return }
+            
+            do {
+                results = try await performSearch(searchText)
+            } catch {
+                print("Search failed: \(error)")
+            }
+        }
+    }
+    
+    private func performSearch(_ query: String) async throws -> [Result] {
+        // Actual search implementation
+    }
+}
+```
+
+## Performance Tips
+
+```swift
+// Use async let for concurrent operations
+func loadDashboard() async throws -> Dashboard {
+    async let user = fetchUser()
+    async let stats = fetchStats()
+    async let notifications = fetchNotifications()
+    
+    return try await Dashboard(
+        user: user,
+        stats: stats,
+        notifications: notifications
+    )
+}
+
+// Avoid unnecessary await
+actor Counter {
+    private var value = 0
+    
+    // Good: Single await
+    func incrementAndGet() -> Int {
+        value += 1
+        return value
+    }
+    
+    // Bad: Multiple awaits for same actor
+    func badIncrement() async -> Int {
+        await increment()
+        return await getValue()
+    }
+}
+
+// Use nonisolated for pure functions
+actor Calculator {
+    nonisolated func add(_ a: Int, _ b: Int) -> Int {
+        a + b  // No await needed
+    }
+}
+```
+
+## Testing Async Code
+
+```swift
+final class ServiceTests: XCTestCase {
+    func testFetchData() async throws {
+        let service = DataService()
+        let data = try await service.fetchData()
+        XCTAssertFalse(data.isEmpty)
+    }
+    
+    func testCancellation() async throws {
+        let task = Task {
+            try await longRunningOperation()
+        }
+        
+        task.cancel()
+        
+        do {
+            _ = try await task.value
+            XCTFail("Should have been cancelled")
+        } catch is CancellationError {
+            // Expected
+        }
+    }
+}
+```

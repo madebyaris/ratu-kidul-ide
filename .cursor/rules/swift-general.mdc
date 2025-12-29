@@ -1,0 +1,404 @@
+---
+description: General Swift coding standards and best practices for Ratu Kidul IDE
+globs: ["**/*.swift"]
+alwaysApply: true
+---
+
+# Swift General Coding Standards
+
+## Swift Version
+
+Use Swift 5.9+ features. Take advantage of modern Swift capabilities:
+- Async/await for asynchronous code
+- Actors for thread-safe state management
+- Result builders where appropriate
+- Property wrappers for common patterns
+- Opaque return types (`some View`, `some Publisher`)
+
+## Access Control
+
+Use the most restrictive access level possible:
+
+```swift
+// Public for APIs exposed to other modules
+public protocol AIProvider { }
+
+// Internal by default (omit keyword)
+struct ChatMessage { }
+
+// Private for implementation details
+private func validateInput() { }
+
+// File-private for types used within the same file
+fileprivate extension String { }
+```
+
+**Guidelines:**
+- Start with `private`, widen only when needed
+- Use `fileprivate` sparingly (usually indicates code smell)
+- Mark protocols and base classes as `open` only if designed for subclassing
+
+## Protocol-Oriented Design
+
+Prefer protocols over inheritance:
+
+```swift
+// Good: Protocol-based design
+protocol DataSource {
+    func fetchData() async throws -> Data
+}
+
+struct NetworkDataSource: DataSource {
+    func fetchData() async throws -> Data {
+        // Implementation
+    }
+}
+
+struct CachedDataSource: DataSource {
+    func fetchData() async throws -> Data {
+        // Implementation
+    }
+}
+
+// Avoid: Class hierarchy
+class BaseDataSource {
+    func fetchData() async throws -> Data {
+        fatalError("Must override")
+    }
+}
+```
+
+**Benefits:**
+- Testability through dependency injection
+- Flexibility to compose behaviors
+- Value semantics where possible
+
+## Type Safety
+
+Leverage Swift's type system:
+
+```swift
+// Use enums for fixed sets of values
+enum FileStatus {
+    case modified
+    case staged
+    case untracked
+    case deleted
+}
+
+// Use associated values for context
+enum LoadingState<T> {
+    case idle
+    case loading
+    case loaded(T)
+    case failed(Error)
+}
+
+// Avoid stringly-typed code
+// Bad
+func process(type: String) { }
+
+// Good
+enum ProcessType {
+    case full
+    case incremental
+}
+func process(type: ProcessType) { }
+```
+
+## Optionals
+
+Handle optionals explicitly and safely:
+
+```swift
+// Use optional binding
+if let user = currentUser {
+    print(user.name)
+}
+
+// Use guard for early returns
+guard let path = project.path else {
+    return
+}
+
+// Use nil coalescing for defaults
+let title = chat.title ?? "Untitled Chat"
+
+// Avoid force unwrapping except in:
+// 1. IB outlets (use !)
+// 2. Programmer errors that should crash
+// 3. After explicit nil check
+```
+
+## Collections
+
+Use appropriate collection types:
+
+```swift
+// Array for ordered collections
+var messages: [Message] = []
+
+// Set for unique, unordered collections
+var visitedPaths: Set<String> = []
+
+// Dictionary for key-value pairs
+var cache: [String: Data] = [:]
+
+// Use isEmpty instead of count == 0
+if messages.isEmpty { }
+
+// Use first/last for safe access
+if let lastMessage = messages.last { }
+
+// Use contains for membership
+if visitedPaths.contains(path) { }
+```
+
+## Extensions
+
+Organize code with extensions:
+
+```swift
+// MARK: - Main type definition
+struct ChatViewModel {
+    // Properties
+}
+
+// MARK: - Public Methods
+extension ChatViewModel {
+    func sendMessage(_ text: String) async { }
+}
+
+// MARK: - Private Helpers
+private extension ChatViewModel {
+    func validateMessage(_ text: String) -> Bool { }
+}
+
+// MARK: - Protocol Conformance
+extension ChatViewModel: ObservableObject { }
+```
+
+## Error Handling
+
+Define domain-specific errors:
+
+```swift
+enum LSPError: LocalizedError {
+    case serverNotFound
+    case initializationFailed(reason: String)
+    case requestTimeout
+    case invalidResponse(Data)
+    
+    var errorDescription: String? {
+        switch self {
+        case .serverNotFound:
+            return "Language server executable not found"
+        case .initializationFailed(let reason):
+            return "Failed to initialize: \(reason)"
+        case .requestTimeout:
+            return "Request timed out"
+        case .invalidResponse:
+            return "Received invalid response from server"
+        }
+    }
+}
+```
+
+**Error Handling Patterns:**
+
+```swift
+// Throwing functions for internal APIs
+func parseResponse(_ data: Data) throws -> Response {
+    guard let response = try? JSONDecoder().decode(Response.self, from: data) else {
+        throw LSPError.invalidResponse(data)
+    }
+    return response
+}
+
+// Result type for async operations
+func fetchData() async -> Result<Data, NetworkError> {
+    do {
+        let data = try await network.fetch()
+        return .success(data)
+    } catch {
+        return .failure(.networkUnavailable)
+    }
+}
+
+// Optional for operations that may not return a value
+func findFile(named: String) -> URL? {
+    // Returns nil if not found
+}
+```
+
+## Naming
+
+Follow Swift naming conventions:
+
+```swift
+// Types: PascalCase
+struct GitRepository { }
+class ChatViewModel { }
+enum FileType { }
+protocol Codable { }
+
+// Properties, methods, parameters: camelCase
+var messageCount: Int
+func sendMessage(to recipient: User)
+let isEnabled: Bool
+
+// Constants: camelCase (not SCREAMING_CASE)
+let maxRetryCount = 3
+let defaultTimeout: TimeInterval = 30
+
+// Boolean properties: use is/has/should prefix
+var isLoading: Bool
+var hasUnsavedChanges: Bool
+var shouldAutoSave: Bool
+
+// Avoid abbreviations unless widely known
+// Bad: msg, btn, lbl
+// Good: message, button, label
+// OK: url, id, json, xml
+```
+
+## Comments and Documentation
+
+```swift
+/// Brief one-line summary.
+///
+/// More detailed explanation if needed. Describe what the function does,
+/// not how it does it (code should be self-documenting for "how").
+///
+/// - Parameters:
+///   - path: The file system path to process
+///   - recursive: Whether to process subdirectories
+/// - Returns: Array of processed file URLs
+/// - Throws: FileError if path is invalid or inaccessible
+func processFiles(at path: String, recursive: Bool) throws -> [URL] {
+    // Implementation
+}
+
+// Use MARK for organization
+// MARK: - Section Title
+// MARK: Section Title (without separator)
+
+// Use TODO/FIXME/NOTE for inline annotations
+// TODO: Implement caching
+// FIXME: Handle edge case when path is empty
+// NOTE: This assumes UTF-8 encoding
+```
+
+## Immutability
+
+Prefer immutable data:
+
+```swift
+// Use let by default
+let configuration = Configuration()
+
+// Use var only when mutation is needed
+var counter = 0
+counter += 1
+
+// Prefer value types (struct) over reference types (class)
+struct Message {  // Immutable by default
+    let id: String
+    let content: String
+}
+
+// Use computed properties for derived values
+struct User {
+    let firstName: String
+    let lastName: String
+    
+    var fullName: String {
+        "\(firstName) \(lastName)"
+    }
+}
+```
+
+## Code Organization
+
+```swift
+// 1. Imports
+import SwiftUI
+import SwiftData
+
+// 2. Type definition
+struct ContentView: View {
+    // 3. Properties (in order: @State, @Binding, @ObservedObject, regular)
+    @State private var isLoading = false
+    @ObservedObject var viewModel: ViewModel
+    let title: String
+    
+    // 4. Computed properties
+    var subtitle: String {
+        "\(title) - Details"
+    }
+    
+    // 5. Body
+    var body: some View {
+        // View code
+    }
+    
+    // 6. Methods
+    func handleAction() {
+        // Implementation
+    }
+}
+
+// 7. Extensions
+extension ContentView {
+    // Additional functionality
+}
+
+// 8. Preview
+#Preview {
+    ContentView(viewModel: ViewModel(), title: "Test")
+}
+```
+
+## Performance Considerations
+
+```swift
+// Use lazy for expensive computations
+lazy var expensiveProperty: Data = {
+    // Computed only when first accessed
+    return computeExpensiveData()
+}()
+
+// Use @autoclosure for conditional evaluation
+func assert(_ condition: @autoclosure () -> Bool, _ message: String) {
+    // condition() only evaluated if assertions are enabled
+}
+
+// Avoid retain cycles with [weak self] or [unowned self]
+Task { [weak self] in
+    await self?.loadData()
+}
+```
+
+## Modern Swift Features
+
+```swift
+// Use if let shorthand (Swift 5.7+)
+if let name {  // Instead of: if let name = name
+    print(name)
+}
+
+// Use multi-pattern catch (Swift 5.9+)
+do {
+    try performOperation()
+} catch NetworkError.timeout, NetworkError.connectionLost {
+    // Handle both errors the same way
+}
+
+// Use result builders for DSL-like APIs
+@resultBuilder
+struct ArrayBuilder<Element> {
+    static func buildBlock(_ components: Element...) -> [Element] {
+        components
+    }
+}
+```

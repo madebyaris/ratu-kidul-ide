@@ -1,0 +1,250 @@
+# Ratu Kidul IDE - Cursor Rules
+
+## Project Overview
+
+Ratu Kidul IDE is a native macOS AI-powered IDE built with SwiftUI. It provides intelligent code assistance through multiple AI providers, tool execution capabilities, and a modern development environment.
+
+**Tech Stack:**
+- SwiftUI 5+ (macOS 14+)
+- Swift 5.9+ with modern concurrency
+- SwiftData for persistence
+- CodeEditSourceEditor for code editing
+- Async/await and actors for concurrency
+
+## Architecture
+
+Follow a clean architecture with clear layer separation:
+
+```
+Presentation Layer (SwiftUI Views)
+    ↓
+Application Layer (ViewModels, Services)
+    ↓
+Domain Layer (Models, Protocols)
+    ↓
+Infrastructure Layer (SwiftData, Network, FileSystem)
+```
+
+**Key Principles:**
+1. Feature-based organization (not layer-based at top level)
+2. Protocol-oriented design for extensibility
+3. Dependency injection for testability
+4. Actor-based concurrency for thread safety
+5. Immutable data models where possible
+
+## Directory Structure
+
+```
+RatuKidulIDE/
+├── App/                    # App lifecycle and global state
+├── Features/               # Feature modules (Chat, Editor, Settings, etc.)
+│   └── [Feature]/
+│       ├── Views/         # SwiftUI views
+│       ├── ViewModels/    # View models
+│       └── Models/        # Feature-specific models
+├── Core/                   # Core business logic
+│   ├── Providers/         # AI provider implementations
+│   ├── Services/          # Business services (actors)
+│   ├── Toolsets/          # Tool execution
+│   ├── MCP/               # Model Context Protocol
+│   ├── LSP/               # Language Server Protocol (new)
+│   └── Git/               # Git integration (new)
+├── Data/                   # Data layer
+│   └── Models/            # SwiftData models
+├── Shared/                 # Shared utilities and components
+│   ├── Components/        # Reusable UI components
+│   ├── Extensions/        # Swift extensions
+│   └── Utilities/         # Helper functions
+└── Resources/              # Assets, plists, entitlements
+```
+
+## Naming Conventions
+
+### Files
+- Swift files: PascalCase (e.g., `ChatViewModel.swift`)
+- Views: Suffix with `View` (e.g., `ChatView.swift`)
+- ViewModels: Suffix with `ViewModel` (e.g., `ChatViewModel.swift`)
+- Services: Suffix with `Service` (e.g., `GitService.swift`)
+- Protocols: Descriptive name without prefix (e.g., `AIProvider`, `Toolset`)
+
+### Code
+- Types: PascalCase (e.g., `ChatMessage`, `AIProvider`)
+- Properties/Methods: camelCase (e.g., `sendMessage`, `isLoading`)
+- Constants: camelCase (e.g., `maxRetries`, `defaultTimeout`)
+- Enums: PascalCase for type, camelCase for cases (e.g., `enum Status { case pending, completed }`)
+
+## Import Ordering
+
+Organize imports in this order:
+1. Foundation/SwiftUI system frameworks
+2. Third-party dependencies
+3. Internal modules (if applicable)
+
+```swift
+import SwiftUI
+import SwiftData
+import CodeEditSourceEditor
+
+// Your code here
+```
+
+## Error Handling
+
+1. **Define custom error enums** for each domain:
+```swift
+enum GitError: LocalizedError {
+    case repositoryNotFound
+    case invalidBranch(String)
+    case mergeFailed(reason: String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .repositoryNotFound:
+            return "Git repository not found"
+        case .invalidBranch(let name):
+            return "Invalid branch: \(name)"
+        case .mergeFailed(let reason):
+            return "Merge failed: \(reason)"
+        }
+    }
+}
+```
+
+2. **Use Result type** for operations that can fail:
+```swift
+func fetchData() async -> Result<Data, NetworkError>
+```
+
+3. **Propagate errors** with `throws` for internal APIs:
+```swift
+func processFile(at path: String) async throws -> ProcessedFile
+```
+
+4. **Handle errors gracefully** in UI layer with user-friendly messages
+
+## Documentation
+
+### Public APIs
+All public types, methods, and properties must have documentation comments:
+
+```swift
+/// Manages Git operations for a project repository.
+///
+/// This actor provides thread-safe access to Git commands and maintains
+/// repository state. All operations are async and can throw GitError.
+actor GitService {
+    /// Retrieves the current repository status.
+    ///
+    /// - Returns: A GitStatus object containing staged, modified, and untracked files
+    /// - Throws: GitError if repository is not found or git command fails
+    func status() async throws -> GitStatus
+}
+```
+
+### Complex Logic
+Add inline comments for non-obvious logic:
+```swift
+// Use binary search for O(log n) lookup in sorted array
+let index = items.binarySearch(for: target)
+```
+
+## Code Style
+
+### SwiftUI Views
+- Extract complex views into computed properties or separate structs
+- Keep view body under 10 lines when possible
+- Use ViewBuilder for conditional content
+- Always provide accessibility labels
+
+```swift
+struct ChatView: View {
+    @StateObject private var viewModel: ChatViewModel
+    
+    var body: some View {
+        VStack {
+            messageList
+            inputBar
+        }
+    }
+    
+    private var messageList: some View {
+        ScrollView {
+            // Message list content
+        }
+        .accessibilityLabel("Chat messages")
+    }
+}
+```
+
+### Async/Await
+- Prefer async/await over completion handlers
+- Use actors for mutable shared state
+- Mark UI updates with @MainActor
+- Handle task cancellation appropriately
+
+```swift
+actor DataService {
+    func fetchData() async throws -> Data {
+        // Thread-safe data fetching
+    }
+}
+
+@MainActor
+class ViewModel: ObservableObject {
+    @Published var data: Data?
+    
+    func loadData() async {
+        // Automatically on main actor
+        data = try? await dataService.fetchData()
+    }
+}
+```
+
+## Testing
+
+- Write unit tests for all business logic
+- Use dependency injection for testability
+- Mock external dependencies (network, file system)
+- Test async code with async test methods
+
+```swift
+final class GitServiceTests: XCTestCase {
+    func testStatusReturnsModifiedFiles() async throws {
+        let service = GitService(projectPath: "/test/path")
+        let status = try await service.status()
+        XCTAssertFalse(status.modifiedFiles.isEmpty)
+    }
+}
+```
+
+## Performance
+
+- Use lazy loading for large lists
+- Implement pagination for data fetching
+- Cache expensive computations
+- Profile before optimizing
+
+## Accessibility
+
+- All interactive elements need accessibility labels
+- Support keyboard navigation
+- Provide alternative text for images
+- Test with VoiceOver
+
+## Security
+
+- Never commit API keys or secrets
+- Use Keychain for sensitive data storage
+- Validate all user inputs
+- Sanitize file paths to prevent directory traversal
+
+## Git Workflow
+
+- Create feature branches from main
+- Write descriptive commit messages
+- Keep commits focused and atomic
+- Review code before merging
+
+---
+
+For more specific guidelines, see the `.cursor/rules/` directory for domain-specific rules.
