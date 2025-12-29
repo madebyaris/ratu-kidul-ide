@@ -543,7 +543,7 @@ final class ChatViewModel {
         agentState = .running
         
         // Build context with all previous messages
-        var builtContext = await contextBuilder.buildContext(
+        let builtContext = await contextBuilder.buildContext(
             chat: chat,
             messageSets: allMessageSetsForContext,
             currentInput: "",
@@ -574,7 +574,7 @@ final class ChatViewModel {
         // If not found, add the assistant message with tool calls
         var foundAssistantMessage = false
         for (index, msg) in messages.enumerated().reversed() {
-            if case .assistant(let content, let model, let calls) = msg, model == modelConfig.modelId {
+            if case .assistant(_, let model, _) = msg, model == modelConfig.modelId {
                 // Update this message to include tool calls
                 messages[index] = .assistant(content: message.text, model: modelConfig.modelId, toolCalls: [])
                 foundAssistantMessage = true

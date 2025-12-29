@@ -9,7 +9,11 @@ final class AppState: ObservableObject {
     let modelContext: ModelContext
     
     @Published var selectedChatId: String?
-    @Published var selectedProjectId: String?
+    @Published var selectedProjectId: String? {
+        didSet {
+            updateLSPProjectRoot()
+        }
+    }
     
     private init() {
         let schema = Schema([
@@ -63,6 +67,38 @@ final class AppState: ObservableObject {
             } catch {
                 fatalError("Could not create ModelContainer even after reset: \(error)")
             }
+        }
+        
+        // Initialize LSP Manager
+        Task {
+            await updateLSPProjectRoot()
+        }
+    }
+    
+    /// Update LSP project root based on selected project
+    private func updateLSPProjectRoot() {
+        Task {
+            if let projectId = selectedProjectId {
+                let descriptor = FetchDescriptor<Project>(
+                    predicate: #Predicate { $0.id == projectId }
+                )
+                
+                if let project = try? modelContext.fetch(descriptor).first,
+                   let projectPath = project.path {
+                    await LSPManager.shared.setProjectRoot(projectPath)
+                } else {
+                    await LSPManager.shared.setProjectRoot(nil)
+                }
+            } else {
+                await LSPManager.shared.setProjectRoot(nil)
+            }
+        }
+    }
+    
+    /// Cleanup on app termination
+    func shutdown() {
+        Task {
+            await LSPManager.shared.shutdown()
         }
     }
 }

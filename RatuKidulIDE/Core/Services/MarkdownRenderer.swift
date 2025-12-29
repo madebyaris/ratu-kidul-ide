@@ -38,11 +38,10 @@ final class MarkdownRenderer {
             applyInlineStyles(to: &s, ctx: ctx)
             out.append(s)
 
-        case let soft as Markdown.SoftBreak:
+        case _ as Markdown.SoftBreak:
             out.append(AttributedString("\n"))
 
-        case let br as Markdown.LineBreak:
-            _ = br
+        case _ as Markdown.LineBreak:
             out.append(AttributedString("\n"))
 
         case let para as Markdown.Paragraph:

@@ -7,12 +7,15 @@ import CodeEditLanguages
 struct CodeEditorView: View {
     let filePath: String
     @Binding var content: String
+    var viewModel: EditorViewModel? = nil
     let onContentChange: (String) -> Void
     
     @State private var language: CodeLanguage = .default
     @State private var editorState = SourceEditorState(
         cursorPositions: [CursorPosition(line: 1, column: 1)]
     )
+    @State private var showCompletions = false
+    @State private var hoverPosition: CGPoint?
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("editorFontSize") private var editorFontSize: Double = FontSettingsDefaults.editorFontSize
     
@@ -22,36 +25,82 @@ struct CodeEditorView: View {
     }
     
     var body: some View {
-        SourceEditor(
-            $content,
-            language: language,
-            configuration: SourceEditorConfiguration(
-                appearance: .init(
-                    theme: currentTheme,
-                    font: editorFont,
-                    wrapLines: true
+        ZStack(alignment: .topLeading) {
+            SourceEditor(
+                $content,
+                language: language,
+                configuration: SourceEditorConfiguration(
+                    appearance: .init(
+                        theme: currentTheme,
+                        font: editorFont,
+                        wrapLines: true
+                    ),
+                    behavior: .init(
+                        indentOption: .spaces(count: 4)
+                    ),
+                    peripherals: .init(
+                        showGutter: true,
+                        showMinimap: false
+                    )
                 ),
-                behavior: .init(
-                    indentOption: .spaces(count: 4)
-                ),
-                peripherals: .init(
-                    showGutter: true,
-                    showMinimap: false
+                state: $editorState
+            )
+            .onChange(of: content) { _, newValue in
+                onContentChange(newValue)
+            }
+            .onAppear {
+                detectLanguage()
+                updateCursorPosition()
+            }
+            .onChange(of: filePath) { _, _ in
+                detectLanguage()
+            }
+            .onChange(of: colorScheme) { _, _ in
+                // Theme will automatically update via currentTheme computed property
+            }
+            .onChange(of: editorState.cursorPositions) { _, _ in
+                updateCursorPosition()
+            }
+            
+            // Completion popup
+            if let viewModel = viewModel, viewModel.showCompletions, !viewModel.completions.isEmpty {
+                CompletionPopupView(
+                    completions: viewModel.completions,
+                    selectedIndex: Binding(
+                        get: { viewModel.selectedCompletionIndex },
+                        set: { viewModel.selectedCompletionIndex = $0 }
+                    ),
+                    onSelect: { item in
+                        viewModel.showCompletions = false
+                    }
                 )
-            ),
-            state: $editorState
-        )
-        .onChange(of: content) { _, newValue in
-            onContentChange(newValue)
+                .offset(x: 20, y: 40)
+            }
+            
+            // Hover popover
+            if let viewModel = viewModel, let hover = viewModel.hoverContent, let position = hoverPosition {
+                HoverPopoverView(hover: hover)
+                    .position(x: position.x, y: position.y - 20)
+            }
         }
-        .onAppear {
-            detectLanguage()
+    }
+    
+    /// Update cursor position in view model
+    private func updateCursorPosition() {
+        guard let viewModel = viewModel,
+              let positions = editorState.cursorPositions,
+              let cursor = positions.first else {
+            return
         }
-        .onChange(of: filePath) { _, _ in
-            detectLanguage()
-        }
-        .onChange(of: colorScheme) { _, _ in
-            // Theme will automatically update via currentTheme computed property
+        
+        // Convert to LSP Position (0-based)
+        // CursorPosition has .start.line and .start.column (1-indexed)
+        let lspPosition = Position(line: cursor.start.line - 1, character: cursor.start.column - 1)
+        viewModel.updateCursorPosition(line: lspPosition.line, character: lspPosition.character)
+        
+        // Request completion on cursor change (debounced in view model)
+        Task {
+            await viewModel.requestCompletion()
         }
     }
     
@@ -244,6 +293,7 @@ extension NSColor {
             CodeEditorView(
                 filePath: "/test/main.swift",
                 content: $content,
+                viewModel: nil,
                 onContentChange: { _ in }
             )
             .frame(width: 600, height: 400)

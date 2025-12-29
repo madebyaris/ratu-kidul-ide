@@ -35,27 +35,50 @@ struct EditorContentView: View {
     }
 }
 
-/// Wrapper for the code editor that handles content binding
+/// Wrapper for the code editor that handles content binding and LSP integration
 struct FileEditorWrapper: View {
     let filePath: String
     @Bindable var tabManager: EditorTabManager
+    @State private var viewModel: EditorViewModel?
     
     var body: some View {
-        // Create a binding that reads/writes directly to tabManager
-        let contentBinding = Binding<String>(
-            get: { tabManager.fileContents[filePath] ?? "" },
-            set: { newValue in
-                tabManager.updateFileContent(path: filePath, content: newValue)
+        Group {
+            if let viewModel = viewModel {
+                let contentBinding = Binding<String>(
+                    get: { tabManager.fileContents[filePath] ?? "" },
+                    set: { newValue in
+                        tabManager.updateFileContent(path: filePath, content: newValue)
+                        Task {
+                            await viewModel.didChangeDocument(content: newValue)
+                        }
+                    }
+                )
+                
+                CodeEditorView(
+                    filePath: filePath,
+                    content: contentBinding,
+                    viewModel: viewModel,
+                    onContentChange: { _ in }
+                )
+            } else {
+                ProgressView()
             }
-        )
-        
-        CodeEditorView(
-            filePath: filePath,
-            content: contentBinding,
-            onContentChange: { _ in
-                // Content change is already handled by the binding's setter
+        }
+        .task {
+            let vm = EditorViewModel(filePath: filePath)
+            self.viewModel = vm
+            vm.setupDiagnosticsCallback()
+            if let content = tabManager.fileContents[filePath] {
+                await vm.didOpenDocument(content: content)
             }
-        )
+        }
+        .onDisappear {
+            if let vm = viewModel {
+                Task {
+                    await vm.didCloseDocument()
+                }
+            }
+        }
     }
 }
 

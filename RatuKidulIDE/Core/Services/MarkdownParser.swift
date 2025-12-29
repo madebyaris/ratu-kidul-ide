@@ -19,7 +19,6 @@ actor MarkdownParser {
         
         let lines = content.components(separatedBy: .newlines)
         var currentSection: MarkdownSection?
-        var currentCodeBlock: CodeBlock?
         var inCodeBlock = false
         var codeBlockLanguage: String?
         var codeBlockContent: [String] = []
@@ -84,8 +83,8 @@ actor MarkdownParser {
                 let matches = regex.matches(in: line, range: range)
                 for match in matches {
                     if match.numberOfRanges >= 3,
-                       let textRange = Range(match.range(at: 1), in: line),
-                       let urlRange = Range(match.range(at: 2), in: line) {
+                       let textRange = Swift.Range(match.range(at: 1), in: line),
+                       let urlRange = Swift.Range(match.range(at: 2), in: line) {
                         links.append(Link(
                             text: String(line[textRange]),
                             url: String(line[urlRange]),
@@ -102,8 +101,8 @@ actor MarkdownParser {
                 let matches = regex.matches(in: line, range: range)
                 for match in matches {
                     if match.numberOfRanges >= 3,
-                       let altRange = Range(match.range(at: 1), in: line),
-                       let urlRange = Range(match.range(at: 2), in: line) {
+                       let altRange = Swift.Range(match.range(at: 1), in: line),
+                       let urlRange = Swift.Range(match.range(at: 2), in: line) {
                         images.append(MarkdownImage(
                             alt: String(line[altRange]),
                             url: String(line[urlRange]),

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -69,6 +69,21 @@
 		FA44B54FE525E0C93A563352 /* AgentController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E022CDFF8B10F312615EB369 /* AgentController.swift */; };
 		FC2FB1BA030186010337595A /* AIResponseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CDC327D81A33E24D0D0E539 /* AIResponseView.swift */; };
 		FD3E1367622F4BB61F14EC08 /* GrokProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEBEA2145C7AAC3284F830FB /* GrokProvider.swift */; };
+		LSP002000000000000000001 /* CompletionPopupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000001 /* CompletionPopupView.swift */; };
+		LSP002000000000000000002 /* DiagnosticsGutterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000002 /* DiagnosticsGutterView.swift */; };
+		LSP002000000000000000003 /* HoverPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000003 /* HoverPopoverView.swift */; };
+		LSP002000000000000000004 /* EditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000004 /* EditorViewModel.swift */; };
+		LSP002000000000000000010 /* DocumentVersionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000010 /* DocumentVersionManager.swift */; };
+		LSP002000000000000000011 /* JSONRPCTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000011 /* JSONRPCTransport.swift */; };
+		LSP002000000000000000012 /* LanguageServerConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000012 /* LanguageServerConfig.swift */; };
+		LSP002000000000000000013 /* LSPCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000013 /* LSPCache.swift */; };
+		LSP002000000000000000014 /* LSPDebouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000014 /* LSPDebouncer.swift */; };
+		LSP002000000000000000015 /* LSPError.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000015 /* LSPError.swift */; };
+		LSP002000000000000000016 /* LSPLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000016 /* LSPLogger.swift */; };
+		LSP002000000000000000017 /* LSPManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000017 /* LSPManager.swift */; };
+		LSP002000000000000000018 /* LSPServerPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000018 /* LSPServerPool.swift */; };
+		LSP002000000000000000019 /* LSPSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000019 /* LSPSession.swift */; };
+		LSP002000000000000000020 /* LSPTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSP001000000000000000020 /* LSPTypes.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -110,7 +125,7 @@
 		62840CF1E9624FA86665258B /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		66CA781176627D6BDB0BC737 /* ProviderRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderRegistry.swift; sourceTree = "<group>"; };
 		6944779D3609F7343CDBA274 /* SemanticIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticIndex.swift; sourceTree = "<group>"; };
-		74854133B384AD3809539ECF /* RatuKidulIDE.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RatuKidulIDE.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		74854133B384AD3809539ECF /* Ratu Kidul IDE.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Ratu Kidul IDE.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		7D9499558B3DCF46A5DA386D /* FileTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTools.swift; sourceTree = "<group>"; };
 		7FEF816594060345AA121FAC /* APIKeysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeysView.swift; sourceTree = "<group>"; };
 		8619C540DAF541200C7C3EBC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -145,6 +160,21 @@
 		F9BEA02EFF726DA604584C96 /* SystemPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemPromptBuilder.swift; sourceTree = "<group>"; };
 		FC53339FE7761A88B579303A /* RatuKidulApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatuKidulApp.swift; sourceTree = "<group>"; };
 		FFB789ED3D914BE851957E39 /* ContextBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextBuilder.swift; sourceTree = "<group>"; };
+		LSP001000000000000000001 /* CompletionPopupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletionPopupView.swift; sourceTree = "<group>"; };
+		LSP001000000000000000002 /* DiagnosticsGutterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsGutterView.swift; sourceTree = "<group>"; };
+		LSP001000000000000000003 /* HoverPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoverPopoverView.swift; sourceTree = "<group>"; };
+		LSP001000000000000000004 /* EditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModel.swift; sourceTree = "<group>"; };
+		LSP001000000000000000010 /* DocumentVersionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentVersionManager.swift; sourceTree = "<group>"; };
+		LSP001000000000000000011 /* JSONRPCTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONRPCTransport.swift; sourceTree = "<group>"; };
+		LSP001000000000000000012 /* LanguageServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageServerConfig.swift; sourceTree = "<group>"; };
+		LSP001000000000000000013 /* LSPCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LSPCache.swift; sourceTree = "<group>"; };
+		LSP001000000000000000014 /* LSPDebouncer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LSPDebouncer.swift; sourceTree = "<group>"; };
+		LSP001000000000000000015 /* LSPError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LSPError.swift; sourceTree = "<group>"; };
+		LSP001000000000000000016 /* LSPLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LSPLogger.swift; sourceTree = "<group>"; };
+		LSP001000000000000000017 /* LSPManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LSPManager.swift; sourceTree = "<group>"; };
+		LSP001000000000000000018 /* LSPServerPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LSPServerPool.swift; sourceTree = "<group>"; };
+		LSP001000000000000000019 /* LSPSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LSPSession.swift; sourceTree = "<group>"; };
+		LSP001000000000000000020 /* LSPTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LSPTypes.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -164,7 +194,7 @@
 		1F77D83BB4CC113C507E45CE /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				74854133B384AD3809539ECF /* RatuKidulIDE.app */,
+				74854133B384AD3809539ECF /* Ratu Kidul IDE.app */,
 				0ECAE172A3BA36264C4382FA /* RatuKidulIDETests.xctest */,
 			);
 			name = Products;
@@ -173,6 +203,7 @@
 		27227F0FD6A5149D4BE7CAE7 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				LSP003000000000000000000 /* LSP */,
 				AC139EBBC9F3174FC96BA131 /* Providers */,
 				EDAD1CC5734DCB3D40ACC1B9 /* Services */,
 				3B177401221E1DD1B2A06C9C /* Toolsets */,
@@ -215,7 +246,10 @@
 			isa = PBXGroup;
 			children = (
 				24BD76EBF4769E00E6925E4B /* CodeEditorView.swift */,
+				LSP001000000000000000001 /* CompletionPopupView.swift */,
+				LSP001000000000000000002 /* DiagnosticsGutterView.swift */,
 				F0DB6F7F6CB8515289A56DA0 /* EditorContentView.swift */,
+				LSP001000000000000000003 /* HoverPopoverView.swift */,
 				9EDDB7FADCD6EA9E6B23C3C2 /* TabBarView.swift */,
 			);
 			path = Views;
@@ -329,6 +363,7 @@
 			isa = PBXGroup;
 			children = (
 				2C8BCAB356920980A69ACDF1 /* EditorTabManager.swift */,
+				LSP001000000000000000004 /* EditorViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -422,6 +457,24 @@
 			);
 			sourceTree = "<group>";
 		};
+		LSP003000000000000000000 /* LSP */ = {
+			isa = PBXGroup;
+			children = (
+				LSP001000000000000000010 /* DocumentVersionManager.swift */,
+				LSP001000000000000000011 /* JSONRPCTransport.swift */,
+				LSP001000000000000000012 /* LanguageServerConfig.swift */,
+				LSP001000000000000000013 /* LSPCache.swift */,
+				LSP001000000000000000014 /* LSPDebouncer.swift */,
+				LSP001000000000000000015 /* LSPError.swift */,
+				LSP001000000000000000016 /* LSPLogger.swift */,
+				LSP001000000000000000017 /* LSPManager.swift */,
+				LSP001000000000000000018 /* LSPServerPool.swift */,
+				LSP001000000000000000019 /* LSPSession.swift */,
+				LSP001000000000000000020 /* LSPTypes.swift */,
+			);
+			path = LSP;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -444,7 +497,7 @@
 				184C764542543F1C28C0576B /* Markdown */,
 			);
 			productName = RatuKidulIDE;
-			productReference = 74854133B384AD3809539ECF /* RatuKidulIDE.app */;
+			productReference = 74854133B384AD3809539ECF /* Ratu Kidul IDE.app */;
 			productType = "com.apple.product-type.application";
 		};
 		FF39553E450331A525A5F5D0 /* RatuKidulIDETests */ = {
@@ -472,7 +525,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					2F88F79EFC196036F6BE9CDD = {
 						DevelopmentTeam = "";
@@ -495,7 +548,6 @@
 				162A329CC4FC3E71D4BF3D11 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */,
 				A980019BBFA08BADB3347E4A /* XCRemoteSwiftPackageReference "swift-markdown" */,
 			);
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -522,6 +574,21 @@
 			buildActionMask = 2147483647;
 			files = (
 				92B7D02AC20C99E09E8E2397 /* AIProvider.swift in Sources */,
+				LSP002000000000000000001 /* CompletionPopupView.swift in Sources */,
+				LSP002000000000000000002 /* DiagnosticsGutterView.swift in Sources */,
+				LSP002000000000000000010 /* DocumentVersionManager.swift in Sources */,
+				LSP002000000000000000004 /* EditorViewModel.swift in Sources */,
+				LSP002000000000000000003 /* HoverPopoverView.swift in Sources */,
+				LSP002000000000000000011 /* JSONRPCTransport.swift in Sources */,
+				LSP002000000000000000012 /* LanguageServerConfig.swift in Sources */,
+				LSP002000000000000000013 /* LSPCache.swift in Sources */,
+				LSP002000000000000000014 /* LSPDebouncer.swift in Sources */,
+				LSP002000000000000000015 /* LSPError.swift in Sources */,
+				LSP002000000000000000016 /* LSPLogger.swift in Sources */,
+				LSP002000000000000000017 /* LSPManager.swift in Sources */,
+				LSP002000000000000000018 /* LSPServerPool.swift in Sources */,
+				LSP002000000000000000019 /* LSPSession.swift in Sources */,
+				LSP002000000000000000020 /* LSPTypes.swift in Sources */,
 				FC2FB1BA030186010337595A /* AIResponseView.swift in Sources */,
 				7FD29F4CB26DD53E7205ACE0 /* APIKeysView.swift in Sources */,
 				58F1D1226CE635CCCFA14985 /* AddModelForm.swift in Sources */,
@@ -605,6 +672,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -651,9 +719,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -667,6 +737,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -707,9 +778,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -730,6 +803,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -741,6 +815,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -759,9 +834,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGN_ENTITLEMENTS = RatuKidulIDE/Resources/RatuKidulIDE.entitlements;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				INFOPLIST_FILE = RatuKidulIDE/Resources/Info.plist;
@@ -783,9 +859,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGN_ENTITLEMENTS = RatuKidulIDE/Resources/RatuKidulIDE.entitlements;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				INFOPLIST_FILE = RatuKidulIDE/Resources/Info.plist;

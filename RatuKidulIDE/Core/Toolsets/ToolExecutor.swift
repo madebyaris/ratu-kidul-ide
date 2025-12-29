@@ -52,9 +52,6 @@ final class ToolExecutor {
         // Normalize tool name: remove dots, handle underscores
         toolName = toolName.replacingOccurrences(of: ".", with: "_")
         
-        // If name doesn't match, try stripping namespace prefix
-        let normalizedName = toolName.lowercased()
-        
         print("   🔍 Normalized tool name: '\(toolName)' (original: '\(toolCall.name)')")
         
         switch toolName {
@@ -147,7 +144,7 @@ final class ToolExecutor {
             let ext = (path as NSString).pathExtension.lowercased()
             if ext == "md" || ext == "markdown" {
                 print("📝 Parsing markdown file: \(path)")
-                let parser = await MarkdownParser.shared
+                let parser = MarkdownParser.shared
                 let parsed = await parser.parse(readResult.output)
                 print("   Found \(parsed.sections.count) sections, \(parsed.codeBlocks.count) code blocks")
                 

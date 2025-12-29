@@ -1,6 +1,9 @@
 import Foundation
 import NaturalLanguage
 
+// Resolve Range type conflict with LSPTypes.Range
+private typealias StringRange = Swift.Range<String.Index>
+
 // MARK: - Semantic Index
 
 /// Provides semantic (meaning-based) search capabilities for code
@@ -314,7 +317,7 @@ actor SemanticIndex {
                 
                 for match in matches {
                     if match.numberOfRanges > 1,
-                       let symbolRange = Range(match.range(at: 1), in: content) {
+                       let symbolRange = StringRange(match.range(at: 1), in: content) {
                         let symbol = String(content[symbolRange])
                         if !symbols.contains(symbol) {
                             symbols.append(symbol)
@@ -421,7 +424,7 @@ struct SemanticSearchTool: ToolDefinition {
 extension SearchTools {
     /// Perform semantic search using the SemanticIndex
     func semanticSearch(query: String, path: String? = nil, limit: Int = 10) async -> ToolExecutionResult {
-        let index = await SemanticIndex.shared
+        let index = SemanticIndex.shared
         
         // Check if index exists
         let stats = await index.indexStats

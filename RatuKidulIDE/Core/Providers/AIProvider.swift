@@ -106,7 +106,7 @@ struct Model: Codable, Identifiable {
 }
 
 // Helper for encoding/decoding Any values
-struct AnyCodable: Codable {
+struct AnyCodable: Codable, Equatable, Hashable {
     let value: Any
     
     init(_ value: Any) {
@@ -115,7 +115,9 @@ struct AnyCodable: Codable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        if let bool = try? container.decode(Bool.self) {
+        if container.decodeNil() {
+            value = NSNull()
+        } else if let bool = try? container.decode(Bool.self) {
             value = bool
         } else if let int = try? container.decode(Int.self) {
             value = int
@@ -135,6 +137,8 @@ struct AnyCodable: Codable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch value {
+        case is NSNull:
+            try container.encodeNil()
         case let bool as Bool:
             try container.encode(bool)
         case let int as Int:
@@ -150,6 +154,14 @@ struct AnyCodable: Codable {
         default:
             throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: container.codingPath, debugDescription: "AnyCodable value cannot be encoded"))
         }
+    }
+    
+    static func == (lhs: AnyCodable, rhs: AnyCodable) -> Bool {
+        String(describing: lhs.value) == String(describing: rhs.value)
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(String(describing: value))
     }
 }
 

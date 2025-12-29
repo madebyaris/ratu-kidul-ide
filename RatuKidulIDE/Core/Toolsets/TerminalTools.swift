@@ -1,5 +1,8 @@
 import Foundation
 
+// Resolve Range type conflict with LSPTypes.Range
+private typealias StringRange = Swift.Range<String.Index>
+
 // MARK: - Terminal Tools Implementation
 
 /// Handles shell command execution for the AI agent
@@ -264,11 +267,15 @@ actor TerminalTools {
         backgroundProcesses[pid] = process
         
         // Read initial output (wait briefly)
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        do {
+            try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        } catch {
+            // Ignore cancellation
+        }
         
         var initialOutput = ""
-        if let data = try? outputPipe.fileHandleForReading.availableData,
-           let output = String(data: data, encoding: .utf8) {
+        let data = outputPipe.fileHandleForReading.availableData
+        if let output = String(data: data, encoding: .utf8) {
             initialOutput = output
         }
         
@@ -407,7 +414,7 @@ actor TerminalTools {
         let matches = regex.matches(in: command, range: range)
 
         for match in matches {
-            guard let r = Range(match.range(at: 1), in: command) else { continue }
+            guard let r = StringRange(match.range(at: 1), in: command) else { continue }
             let p = String(command[r])
             let normalized = (p as NSString).standardizingPath
             if !normalized.hasPrefix(normalizedProject) {

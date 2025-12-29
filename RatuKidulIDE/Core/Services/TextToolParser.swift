@@ -1,5 +1,8 @@
 import Foundation
 
+// Use Swift's Range type explicitly to avoid conflict with LSP Range
+private typealias StringRange = Swift.Range<String.Index>
+
 // MARK: - Text Tool Parser
 
 /// Parses tool calls from text output when models don't use native function calling
@@ -87,8 +90,8 @@ final class TextToolParser {
             }
             
             for match in matches {
-                guard let toolNameRange = Range(match.range(at: 1), in: text),
-                      let argsRange = Range(match.range(at: 2), in: text) else { continue }
+                guard let toolNameRange = Swift.Range(match.range(at: 1), in: text),
+                      let argsRange = Swift.Range(match.range(at: 2), in: text) else { continue }
                 
                 let toolName = String(text[toolNameRange]).trimmingCharacters(in: .whitespacesAndNewlines)
                 var argsText = String(text[argsRange]).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -129,8 +132,8 @@ final class TextToolParser {
             print("🔍 [TextToolParser] Pattern 2 (without >, with closing tags) found \(matches.count) match(es)")
             
             for match in matches {
-                guard let toolNameRange = Range(match.range(at: 1), in: text),
-                      let argsRange = Range(match.range(at: 2), in: text) else { continue }
+                guard let toolNameRange = Swift.Range(match.range(at: 1), in: text),
+                      let argsRange = Swift.Range(match.range(at: 2), in: text) else { continue }
                 
                 let toolName = String(text[toolNameRange]).trimmingCharacters(in: .whitespacesAndNewlines)
                 var argsText = String(text[argsRange]).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -164,8 +167,8 @@ final class TextToolParser {
             print("🔍 [TextToolParser] Pattern 3 (no closing tags) found \(matches.count) match(es)")
             
             for match in matches {
-                guard let toolNameRange = Range(match.range(at: 1), in: text),
-                      let argsRange = Range(match.range(at: 2), in: text) else { continue }
+                guard let toolNameRange = Swift.Range(match.range(at: 1), in: text),
+                      let argsRange = Swift.Range(match.range(at: 2), in: text) else { continue }
                 
                 let toolName = String(text[toolNameRange]).trimmingCharacters(in: .whitespacesAndNewlines)
                 var argsText = String(text[argsRange]).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -297,7 +300,7 @@ final class TextToolParser {
                 print("🔍 [TextToolParser] Simple pattern found \(simpleMatches.count) 🔧 marker(s)")
                 
                 for match in simpleMatches {
-                    guard let toolNameRange = Range(match.range(at: 1), in: text) else { continue }
+                    guard let toolNameRange = Swift.Range(match.range(at: 1), in: text) else { continue }
                     let toolName = String(text[toolNameRange]).trimmingCharacters(in: .whitespacesAndNewlines)
                     
                     // Find the text after this match until </tool_call> or next 🔧 or end
@@ -410,7 +413,7 @@ final class TextToolParser {
         let matches = regex.matches(in: text, options: [], range: NSRange(text.startIndex..., in: text))
         
         for match in matches {
-            guard let range = Range(match.range(at: 1), in: text) else { continue }
+            guard let range = Swift.Range(match.range(at: 1), in: text) else { continue }
             let jsonContent = String(text[range]).trimmingCharacters(in: .whitespacesAndNewlines)
             
             if let toolCall = parseJSONToolCall(jsonContent) {
@@ -436,8 +439,8 @@ final class TextToolParser {
         let matches = regex.matches(in: text, options: [], range: NSRange(text.startIndex..., in: text))
         
         for match in matches {
-            guard let toolNameRange = Range(match.range(at: 1), in: text),
-                  let argsRange = Range(match.range(at: 2), in: text) else { continue }
+            guard let toolNameRange = Swift.Range(match.range(at: 1), in: text),
+                  let argsRange = Swift.Range(match.range(at: 2), in: text) else { continue }
             
             let toolName = String(text[toolNameRange]).trimmingCharacters(in: .whitespacesAndNewlines)
             let argsText = String(text[argsRange]).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -478,7 +481,7 @@ final class TextToolParser {
         let matches = regex.matches(in: text, options: [], range: NSRange(text.startIndex..., in: text))
         
         for match in matches {
-            guard let range = Range(match.range(at: 1), in: text) else { continue }
+            guard let range = Swift.Range(match.range(at: 1), in: text) else { continue }
             let jsonContent = String(text[range]).trimmingCharacters(in: .whitespacesAndNewlines)
             
             if let toolCall = parseJSONToolCall(jsonContent) {
@@ -568,8 +571,8 @@ final class TextToolParser {
         let matches = regex.matches(in: text, options: [], range: NSRange(text.startIndex..., in: text))
         
         for match in matches {
-            guard let nameRange = Range(match.range(at: 1), in: text),
-                  let valueRange = Range(match.range(at: 2), in: text) else { continue }
+            guard let nameRange = Swift.Range(match.range(at: 1), in: text),
+                  let valueRange = Swift.Range(match.range(at: 2), in: text) else { continue }
             
             let name = String(text[nameRange])
             let value = String(text[valueRange]).trimmingCharacters(in: .whitespacesAndNewlines)
