@@ -26,6 +26,7 @@ actor LSPManager {
         configs["c"] = .cpp() // Use clangd for C
         configs["html"] = .html()
         configs["css"] = .css()
+        configs["php"] = .php()
         
         // Start cleanup task
         startCleanupTask()
@@ -44,6 +45,15 @@ actor LSPManager {
     /// Get configuration for a language
     func getConfig(languageId: String) -> LanguageServerConfig? {
         return configs[languageId]
+    }
+    
+    /// Check if a language is supported and its server is enabled
+    /// Returns true if the language has an enabled configuration
+    func isLanguageSupported(_ languageId: String) -> Bool {
+        guard let config = configs[languageId] else {
+            return false
+        }
+        return config.isEnabled
     }
     
     /// Get or create a session for a language
@@ -88,6 +98,8 @@ actor LSPManager {
             return "html"
         case "css", "scss", "sass":
             return "css"
+        case "php":
+            return "php"
         default:
             return nil
         }

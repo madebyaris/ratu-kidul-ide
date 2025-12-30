@@ -50,19 +50,26 @@ struct LanguageServerConfig: Codable, Equatable {
     static func swift() -> LanguageServerConfig {
         // Try to find sourcekit-lsp in common locations
         let possiblePaths = [
-            "/usr/bin/sourcekit-lsp",
             "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/sourcekit-lsp",
+            "/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/sourcekit-lsp",
+            "/usr/local/bin/sourcekit-lsp",
+            "/usr/bin/sourcekit-lsp",
             "/Library/Developer/CommandLineTools/usr/bin/sourcekit-lsp"
         ]
         
-        var executablePath = possiblePaths.first ?? "sourcekit-lsp"
+        var executablePath = "sourcekit-lsp"
         
         // Check if any path exists
         for path in possiblePaths {
             if FileManager.default.fileExists(atPath: path) {
                 executablePath = path
+                print("✅ Found sourcekit-lsp at: \(path)")
                 break
             }
+        }
+        
+        if executablePath == "sourcekit-lsp" {
+            print("⚠️ Using PATH-based sourcekit-lsp (not found in standard locations)")
         }
         
         return LanguageServerConfig(
@@ -71,15 +78,7 @@ struct LanguageServerConfig: Codable, Equatable {
             executablePath: executablePath,
             arguments: [],
             environment: [:],
-            initializationOptions: [
-                "workspace": AnyCodable([
-                    "settings": AnyCodable([
-                        "swift": AnyCodable([
-                            "maxWorkspaceLoadedFiles": AnyCodable(1000)
-                        ])
-                    ])
-                ])
-            ]
+            initializationOptions: nil // sourcekit-lsp doesn't need initialization options
         )
     }
     
@@ -95,6 +94,7 @@ struct LanguageServerConfig: Codable, Equatable {
                 "hostInfo": AnyCodable("ratu-kidul-ide"),
                 "maxTsServerMemory": AnyCodable(4096)
             ],
+            isEnabled: false, // Disabled by default - user must install and enable
             autoDetect: true
         )
     }
@@ -114,6 +114,7 @@ struct LanguageServerConfig: Codable, Equatable {
                     ])
                 ])
             ],
+            isEnabled: false, // Disabled by default - user must install and enable
             autoDetect: true
         )
     }
@@ -132,6 +133,7 @@ struct LanguageServerConfig: Codable, Equatable {
                     "ui.completion.usePlaceholders": AnyCodable(true)
                 ])
             ],
+            isEnabled: false, // Disabled by default - user must install and enable
             autoDetect: true
         )
     }
@@ -152,6 +154,7 @@ struct LanguageServerConfig: Codable, Equatable {
                     ])
                 ])
             ],
+            isEnabled: false, // Disabled by default - user must install and enable
             autoDetect: true
         )
     }
@@ -171,6 +174,7 @@ struct LanguageServerConfig: Codable, Equatable {
                     ])
                 ])
             ],
+            isEnabled: false, // Disabled by default - user must install and enable
             autoDetect: true
         )
     }
@@ -183,6 +187,7 @@ struct LanguageServerConfig: Codable, Equatable {
             executablePath: "vscode-html-languageserver",
             arguments: ["--stdio"],
             environment: [:],
+            isEnabled: false, // Disabled by default - user must install and enable
             autoDetect: true
         )
     }
@@ -195,6 +200,24 @@ struct LanguageServerConfig: Codable, Equatable {
             executablePath: "vscode-css-languageserver",
             arguments: ["--stdio"],
             environment: [:],
+            isEnabled: false, // Disabled by default - user must install and enable
+            autoDetect: true
+        )
+    }
+    
+    /// Create a default configuration for PHP (Intelephense)
+    static func php() -> LanguageServerConfig {
+        return LanguageServerConfig(
+            languageId: "php",
+            displayName: "PHP",
+            executablePath: "intelephense",
+            arguments: ["--stdio"],
+            environment: [:],
+            initializationOptions: [
+                "licenceKey": AnyCodable(""), // Optional: add license key if you have one
+                "storagePath": AnyCodable("/tmp/intelephense")
+            ],
+            isEnabled: false, // Disabled by default - user must install and enable
             autoDetect: true
         )
     }

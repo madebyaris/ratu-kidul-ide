@@ -136,19 +136,55 @@ struct AnyCodable: Codable, Equatable, Hashable {
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
+        
+        // Handle nested AnyCodable by unwrapping
+        if let nested = value as? AnyCodable {
+            try nested.encode(to: encoder)
+            return
+        }
+        
         switch value {
         case is NSNull:
             try container.encodeNil()
         case let bool as Bool:
             try container.encode(bool)
+        // Handle ALL integer types (Int32 is used by ProcessInfo.processIdentifier)
         case let int as Int:
             try container.encode(int)
+        case let int32 as Int32:
+            try container.encode(int32)
+        case let int64 as Int64:
+            try container.encode(int64)
+        case let int16 as Int16:
+            try container.encode(int16)
+        case let int8 as Int8:
+            try container.encode(int8)
+        case let uint as UInt:
+            try container.encode(uint)
+        case let uint32 as UInt32:
+            try container.encode(uint32)
+        case let uint64 as UInt64:
+            try container.encode(uint64)
+        case let uint16 as UInt16:
+            try container.encode(uint16)
+        case let uint8 as UInt8:
+            try container.encode(uint8)
+        // Handle floating point types
         case let double as Double:
             try container.encode(double)
+        case let float as Float:
+            try container.encode(float)
+        // Handle string
         case let string as String:
             try container.encode(string)
+        // Handle arrays
+        case let array as [AnyCodable]:
+            try container.encode(array)
         case let array as [Any]:
             try container.encode(array.map { AnyCodable($0) })
+        // Handle dictionaries
+        case let dict as [String: AnyCodable]:
+            try container.encode(dict)
         case let dict as [String: Any]:
             try container.encode(dict.mapValues { AnyCodable($0) })
         default:

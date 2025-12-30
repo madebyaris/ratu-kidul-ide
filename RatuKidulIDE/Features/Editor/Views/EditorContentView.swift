@@ -54,7 +54,7 @@ struct FileEditorWrapper: View {
                     }
                 )
                 
-                CodeEditorView(
+                LightweightEditorView(
                     filePath: filePath,
                     content: contentBinding,
                     viewModel: viewModel,

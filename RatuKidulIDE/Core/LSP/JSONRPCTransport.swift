@@ -143,21 +143,51 @@ actor JSONRPCTransport {
         }
         
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys] // Deterministic output
+        // Don't use sortedKeys - it can cause issues with some LSP servers
+        // encoder.outputFormatting = [.sortedKeys]
         
-        let jsonData = try encoder.encode(message)
-        let header = "Content-Length: \(jsonData.count)\r\n\r\n"
-        
-        guard let headerData = header.data(using: .utf8) else {
-            throw LSPError.encodingFailed
+        do {
+            let jsonData = try encoder.encode(message)
+            
+            // Debug: Print the JSON being sent (first 500 chars)
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                let preview = String(jsonString.prefix(500))
+                print("📤 Sending JSON-RPC: \(preview)\(jsonString.count > 500 ? "..." : "")")
+            }
+            
+            let header = "Content-Length: \(jsonData.count)\r\n\r\n"
+            
+            guard let headerData = header.data(using: .utf8) else {
+                throw LSPError.encodingFailed
+            }
+            
+            let handle = stdinPipe.fileHandleForWriting
+            
+            // Combine header and body into a single write to avoid partial writes
+            var fullMessage = Data()
+            fullMessage.append(headerData)
+            fullMessage.append(jsonData)
+            
+            // Use the older, more reliable write API for pipes
+            // The newer write(contentsOf:) has issues with pipes on some macOS versions
+            handle.write(fullMessage)
+            
+            print("✅ Successfully wrote \(fullMessage.count) bytes to stdin")
+        } catch let error as EncodingError {
+            print("❌ JSON Encoding Error: \(error)")
+            switch error {
+            case .invalidValue(let value, let context):
+                print("   Invalid value: \(value)")
+                print("   Context: \(context.debugDescription)")
+                print("   Coding path: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+            default:
+                print("   Error: \(error.localizedDescription)")
+            }
+            throw error
+        } catch {
+            print("❌ Write Error: \(error)")
+            throw error
         }
-        
-        let handle = stdinPipe.fileHandleForWriting
-        
-        // Write header and body atomically
-        try handle.write(contentsOf: headerData)
-        try handle.write(contentsOf: jsonData)
-        try handle.synchronize()
     }
     
     /// Read responses from stdout

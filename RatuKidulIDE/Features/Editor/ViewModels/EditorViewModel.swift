@@ -26,15 +26,21 @@ final class EditorViewModel {
     private var documentVersion = 1
     private var languageId: String?
     
+    /// Whether LSP is available and enabled for this file's language
+    private var lspAvailable: Bool {
+        get async {
+            guard let langId = languageId else { return false }
+            return await lspManager.isLanguageSupported(langId)
+        }
+    }
+    
     init(filePath: String) {
         self.filePath = filePath
         // Convert file path to file:// URI
         self.fileURI = "file://\(filePath)"
         
-        // Detect language synchronously (it's a simple function)
-        Task { @MainActor in
-            self.languageId = await lspManager.detectLanguage(from: filePath)
-        }
+        // Detect language synchronously (it's nonisolated)
+        self.languageId = lspManager.detectLanguage(from: filePath)
     }
     
     /// Set up diagnostics callback (call after initialization)
@@ -54,6 +60,9 @@ final class EditorViewModel {
     func didOpenDocument(content: String) async {
         guard let languageId = languageId else { return }
         
+        // Check if LSP is available for this language
+        guard await lspAvailable else { return }
+        
         do {
             try await lspManager.didOpenDocument(
                 uri: fileURI,
@@ -61,6 +70,11 @@ final class EditorViewModel {
                 version: documentVersion,
                 text: content
             )
+        } catch let error as LSPError {
+            // Only log unexpected errors
+            if case .serverNotFound = error { return }
+            if case .serverCrashed = error { return }
+            print("Failed to open document in LSP: \(error)")
         } catch {
             print("Failed to open document in LSP: \(error)")
         }
@@ -69,6 +83,7 @@ final class EditorViewModel {
     /// Update document content in LSP
     func didChangeDocument(content: String) async {
         guard languageId != nil else { return }
+        guard await lspAvailable else { return }
         
         documentVersion += 1
         
@@ -82,9 +97,15 @@ final class EditorViewModel {
     /// Close document in LSP
     func didCloseDocument() async {
         guard languageId != nil else { return }
+        guard await lspAvailable else { return }
         
         do {
             try await lspManager.didCloseDocument(uri: fileURI)
+        } catch let error as LSPError {
+            // Only log unexpected errors
+            if case .serverNotFound = error { return }
+            if case .serverCrashed = error { return }
+            print("Failed to close document in LSP: \(error)")
         } catch {
             print("Failed to close document in LSP: \(error)")
         }
@@ -93,12 +114,19 @@ final class EditorViewModel {
     /// Request completion at cursor position
     func requestCompletion() async {
         guard languageId != nil else { return }
+        guard await lspAvailable else { return }
         
         do {
             let completionList = try await lspManager.completion(uri: fileURI, position: cursorPosition)
             completions = completionList.items
             showCompletions = !completions.isEmpty
             selectedCompletionIndex = 0
+        } catch let error as LSPError {
+            if case .serverNotFound = error { }
+            else if case .serverCrashed = error { }
+            else { print("Failed to get completion: \(error)") }
+            completions = []
+            showCompletions = false
         } catch {
             print("Failed to get completion: \(error)")
             completions = []
@@ -109,10 +137,16 @@ final class EditorViewModel {
     /// Request hover at position
     func requestHover(at position: Position) async {
         guard languageId != nil else { return }
+        guard await lspAvailable else { return }
         
         do {
             hoverContent = try await lspManager.hover(uri: fileURI, position: position)
             hoverPosition = position
+        } catch let error as LSPError {
+            if case .serverNotFound = error { }
+            else if case .serverCrashed = error { }
+            else { print("Failed to get hover: \(error)") }
+            hoverContent = nil
         } catch {
             print("Failed to get hover: \(error)")
             hoverContent = nil
@@ -122,9 +156,15 @@ final class EditorViewModel {
     /// Request signature help at cursor position
     func requestSignatureHelp() async {
         guard languageId != nil else { return }
+        guard await lspAvailable else { return }
         
         do {
             signatureHelp = try await lspManager.signatureHelp(uri: fileURI, position: cursorPosition)
+        } catch let error as LSPError {
+            if case .serverNotFound = error { }
+            else if case .serverCrashed = error { }
+            else { print("Failed to get signature help: \(error)") }
+            signatureHelp = nil
         } catch {
             print("Failed to get signature help: \(error)")
             signatureHelp = nil
@@ -144,9 +184,15 @@ final class EditorViewModel {
     /// Go to definition
     func goToDefinition() async -> [Location] {
         guard languageId != nil else { return [] }
+        guard await lspAvailable else { return [] }
         
         do {
             return try await lspManager.definition(uri: fileURI, position: cursorPosition)
+        } catch let error as LSPError {
+            if case .serverNotFound = error { }
+            else if case .serverCrashed = error { }
+            else { print("Failed to go to definition: \(error)") }
+            return []
         } catch {
             print("Failed to go to definition: \(error)")
             return []
@@ -156,9 +202,15 @@ final class EditorViewModel {
     /// Find references
     func findReferences() async -> [Location] {
         guard languageId != nil else { return [] }
+        guard await lspAvailable else { return [] }
         
         do {
             return try await lspManager.references(uri: fileURI, position: cursorPosition, includeDeclaration: true)
+        } catch let error as LSPError {
+            if case .serverNotFound = error { }
+            else if case .serverCrashed = error { }
+            else { print("Failed to find references: \(error)") }
+            return []
         } catch {
             print("Failed to find references: \(error)")
             return []
@@ -168,9 +220,15 @@ final class EditorViewModel {
     /// Rename symbol
     func rename(to newName: String) async -> WorkspaceEdit? {
         guard languageId != nil else { return nil }
+        guard await lspAvailable else { return nil }
         
         do {
             return try await lspManager.rename(uri: fileURI, position: cursorPosition, newName: newName)
+        } catch let error as LSPError {
+            if case .serverNotFound = error { }
+            else if case .serverCrashed = error { }
+            else { print("Failed to rename: \(error)") }
+            return nil
         } catch {
             print("Failed to rename: \(error)")
             return nil
@@ -180,11 +238,17 @@ final class EditorViewModel {
     /// Format document
     func formatDocument(tabSize: Int = 4, insertSpaces: Bool = true) async -> [TextEdit] {
         guard languageId != nil else { return [] }
+        guard await lspAvailable else { return [] }
         
         let options = FormattingOptions(tabSize: tabSize, insertSpaces: insertSpaces)
         
         do {
             return try await lspManager.formatting(uri: fileURI, options: options)
+        } catch let error as LSPError {
+            if case .serverNotFound = error { }
+            else if case .serverCrashed = error { }
+            else { print("Failed to format document: \(error)") }
+            return []
         } catch {
             print("Failed to format document: \(error)")
             return []

@@ -29,13 +29,14 @@
 		3EA426FC9C2FD6A943A96533 /* ToolResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5636D657291632A38373D4AC /* ToolResultView.swift */; };
 		4333CDECD22E36038705EC8D /* EditorTabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8BCAB356920980A69ACDF1 /* EditorTabManager.swift */; };
 		45F0D1F6DFE5646DCCF21E93 /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = 184C764542543F1C28C0576B /* Markdown */; };
+		CEV000000000000000000003 /* CodeEditorView in Frameworks */ = {isa = PBXBuildFile; productRef = CEV000000000000000000002 /* CodeEditorView */; };
 		50867CA5F5A74A6B1C93057F /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62840CF1E9624FA86665258B /* SidebarView.swift */; };
 		58F1D1226CE635CCCFA14985 /* AddModelForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BD5FF9B3C475AFA8F557F3C /* AddModelForm.swift */; };
 		5A60F6E063C6DE9060AB149B /* SearchTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05A1847E4C9C03A3D20BDF4F /* SearchTools.swift */; };
 		5E82D440CC16E99381C16588 /* EditorContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0DB6F7F6CB8515289A56DA0 /* EditorContentView.swift */; };
 		60B29DEB7950588FEE2AAF2A /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426E813DE112B910BC8886AE /* AppState.swift */; };
 		6B3298943611B3CCEE5FDE66 /* PerplexityProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1F92657D993BEA4C16D7C67 /* PerplexityProvider.swift */; };
-		76C442C18E823722E939AB89 /* CodeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BD76EBF4769E00E6925E4B /* CodeEditorView.swift */; };
+		LEV000000000000000000001 /* LightweightEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = LEV000000000000000000002 /* LightweightEditorView.swift */; };
 		7FD29F4CB26DD53E7205ACE0 /* APIKeysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FEF816594060345AA121FAC /* APIKeysView.swift */; };
 		89940E2E5F5118299E6AB426 /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = 443E1FA8904B748A5BAE75BF /* Project.swift */; };
 		90109840D0A94D55DA587512 /* UserMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDF4E8F8195F64F51B07DCA /* UserMessageView.swift */; };
@@ -55,7 +56,6 @@
 		B9B5145475EC23A946FF2F5D /* ProviderRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CA781176627D6BDB0BC737 /* ProviderRegistry.swift */; };
 		BF58EAD0FE71C65F643BB03A /* TokenCounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8091E7082D8F0A59C090D6F /* TokenCounter.swift */; };
 		BF7A5496776A8DF683F0991C /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26D71622C4864CAD5D778E6 /* KeychainService.swift */; };
-		C124BC0A944E7D26B3016E28 /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = 4570D9083A6D485997EFEEBC /* CodeEditSourceEditor */; };
 		CADC48DDA9342005D18F3C72 /* ProjectChatHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11DEF9CDC0A74C40DB1FF46F /* ProjectChatHistoryView.swift */; };
 		D0A1FDFC83A4CC8440EDBA0D /* AnthropicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D230CE1E98DD117A9A332FA /* AnthropicProvider.swift */; };
 		D32BC4B74953552F353508D7 /* SemanticIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6944779D3609F7343CDBA274 /* SemanticIndex.swift */; };
@@ -107,7 +107,7 @@
 		1DEEBFA363C41C745FB1E0FC /* ToolDefinitions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolDefinitions.swift; sourceTree = "<group>"; };
 		2283011926D25164D4DC05ED /* Attachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Attachment.swift; sourceTree = "<group>"; };
 		235302F5B4893DD8B7D0D883 /* ToolExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolExecutor.swift; sourceTree = "<group>"; };
-		24BD76EBF4769E00E6925E4B /* CodeEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeEditorView.swift; sourceTree = "<group>"; };
+		LEV000000000000000000002 /* LightweightEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LightweightEditorView.swift; sourceTree = "<group>"; };
 		2612B62FA329A0F5F46B5726 /* OpenRouterProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenRouterProvider.swift; sourceTree = "<group>"; };
 		2C8BCAB356920980A69ACDF1 /* EditorTabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTabManager.swift; sourceTree = "<group>"; };
 		2DE4414E2FAEBE56AA086926 /* RatuKidulIDE.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RatuKidulIDE.entitlements; sourceTree = "<group>"; };
@@ -182,9 +182,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C124BC0A944E7D26B3016E28 /* CodeEditSourceEditor in Frameworks */,
-				A88A4FB2D2E5E18075B49426 /* CodeEditLanguages in Frameworks */,
 				45F0D1F6DFE5646DCCF21E93 /* Markdown in Frameworks */,
+				CEV000000000000000000003 /* CodeEditorView in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -245,11 +244,11 @@
 		3FBF6BDCE705E498EC11438A /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				24BD76EBF4769E00E6925E4B /* CodeEditorView.swift */,
 				LSP001000000000000000001 /* CompletionPopupView.swift */,
 				LSP001000000000000000002 /* DiagnosticsGutterView.swift */,
 				F0DB6F7F6CB8515289A56DA0 /* EditorContentView.swift */,
 				LSP001000000000000000003 /* HoverPopoverView.swift */,
+				LEV000000000000000000002 /* LightweightEditorView.swift */,
 				9EDDB7FADCD6EA9E6B23C3C2 /* TabBarView.swift */,
 			);
 			path = Views;
@@ -492,9 +491,8 @@
 			);
 			name = RatuKidulIDE;
 			packageProductDependencies = (
-				4570D9083A6D485997EFEEBC /* CodeEditSourceEditor */,
-				AD34D473855777602A1D87C0 /* CodeEditLanguages */,
 				184C764542543F1C28C0576B /* Markdown */,
+				CEV000000000000000000002 /* CodeEditorView */,
 			);
 			productName = RatuKidulIDE;
 			productReference = 74854133B384AD3809539ECF /* Ratu Kidul IDE.app */;
@@ -544,9 +542,8 @@
 			mainGroup = F9F81DDEF3CFF73F4AB27F8D;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				766FCB2AF2F71CDA25A4E28A /* XCRemoteSwiftPackageReference "CodeEditLanguages" */,
-				162A329CC4FC3E71D4BF3D11 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */,
 				A980019BBFA08BADB3347E4A /* XCRemoteSwiftPackageReference "swift-markdown" */,
+				CEV000000000000000000001 /* XCRemoteSwiftPackageReference "CodeEditorView" */,
 			);
 			projectDirPath = "";
 			projectRoot = "";
@@ -601,8 +598,8 @@
 				11069630A56553E67C61CC1F /* ChatInputView.swift in Sources */,
 				345EB23F96F882686956A6FB /* ChatView.swift in Sources */,
 				262B633C75A6CA78D726ECBB /* ChatViewModel.swift in Sources */,
-				76C442C18E823722E939AB89 /* CodeEditorView.swift in Sources */,
 				02181615CA1D2290DC0F8FE9 /* ContentView.swift in Sources */,
+				LEV000000000000000000001 /* LightweightEditorView.swift in Sources */,
 				3198C68513748C82AABC341B /* ContextBuilder.swift in Sources */,
 				5E82D440CC16E99381C16588 /* EditorContentView.swift in Sources */,
 				375FACDE5BE8D56653BA39D2 /* EditorTab.swift in Sources */,
@@ -911,28 +908,20 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		162A329CC4FC3E71D4BF3D11 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/CodeEditApp/CodeEditSourceEditor";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.15.0;
-			};
-		};
-		766FCB2AF2F71CDA25A4E28A /* XCRemoteSwiftPackageReference "CodeEditLanguages" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/CodeEditApp/CodeEditLanguages";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.1.20;
-			};
-		};
 		A980019BBFA08BADB3347E4A /* XCRemoteSwiftPackageReference "swift-markdown" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/swiftlang/swift-markdown";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 0.7.3;
+			};
+		};
+		CEV000000000000000000001 /* XCRemoteSwiftPackageReference "CodeEditorView" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mchakravarty/CodeEditorView";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.14.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -943,15 +932,10 @@
 			package = A980019BBFA08BADB3347E4A /* XCRemoteSwiftPackageReference "swift-markdown" */;
 			productName = Markdown;
 		};
-		4570D9083A6D485997EFEEBC /* CodeEditSourceEditor */ = {
+		CEV000000000000000000002 /* CodeEditorView */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 162A329CC4FC3E71D4BF3D11 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */;
-			productName = CodeEditSourceEditor;
-		};
-		AD34D473855777602A1D87C0 /* CodeEditLanguages */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 766FCB2AF2F71CDA25A4E28A /* XCRemoteSwiftPackageReference "CodeEditLanguages" */;
-			productName = CodeEditLanguages;
+			package = CEV000000000000000000001 /* XCRemoteSwiftPackageReference "CodeEditorView" */;
+			productName = CodeEditorView;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

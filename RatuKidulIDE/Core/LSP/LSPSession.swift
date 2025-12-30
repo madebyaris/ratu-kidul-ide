@@ -78,13 +78,22 @@ actor LSPSession {
         // Launch process
         do {
             try process.run()
+            await logger.logServerLifecycle(language: config.languageId, event: "Process launched", details: "PID: \(process.processIdentifier)")
         } catch {
             await logger.logServerLifecycle(language: config.languageId, event: "Launch failed", details: error.localizedDescription)
             throw LSPError.processLaunchFailed(executablePath, error.localizedDescription)
         }
         
         // Initialize LSP connection
-        try await initialize()
+        do {
+            try await initialize()
+        } catch {
+            await logger.logServerLifecycle(language: config.languageId, event: "Initialization failed", details: error.localizedDescription)
+            // Clean up the process if initialization fails
+            process.terminate()
+            self.process = nil
+            throw error
+        }
     }
     
     /// Initialize the LSP connection
@@ -100,97 +109,115 @@ actor LSPSession {
             rootURI = nil
         }
         
-        let initializeParams: [String: AnyCodable] = [
-            "processId": AnyCodable(ProcessInfo.processInfo.processIdentifier),
-            "clientInfo": AnyCodable([
-                "name": AnyCodable("Ratu Kidul IDE"),
-                "version": AnyCodable("1.0.0")
-            ]),
-            "locale": AnyCodable("en-US"),
-            "rootPath": AnyCodable(projectRoot),
-            "rootUri": AnyCodable(rootURI),
-            "capabilities": AnyCodable([
-                "workspace": AnyCodable([
-                    "applyEdit": AnyCodable(true),
-                    "workspaceEdit": AnyCodable([
-                        "documentChanges": AnyCodable(true)
-                    ]),
-                    "didChangeConfiguration": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "didChangeWatchedFiles": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "symbol": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "executeCommand": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ])
-                ]),
-                "textDocument": AnyCodable([
-                    "synchronization": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true),
-                        "willSave": AnyCodable(true),
-                        "willSaveWaitUntil": AnyCodable(true),
-                        "didSave": AnyCodable(true)
-                    ]),
-                    "completion": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true),
-                        "completionItem": AnyCodable([
-                            "snippetSupport": AnyCodable(true),
-                            "commitCharactersSupport": AnyCodable(true),
-                            "documentationFormat": AnyCodable(["markdown", "plaintext"])
-                        ])
-                    ]),
-                    "hover": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true),
-                        "contentFormat": AnyCodable(["markdown", "plaintext"])
-                    ]),
-                    "signatureHelp": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true),
-                        "signatureInformation": AnyCodable([
-                            "documentationFormat": AnyCodable(["markdown", "plaintext"])
-                        ])
-                    ]),
-                    "definition": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "references": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "documentHighlight": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "documentSymbol": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "codeAction": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "codeLens": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "formatting": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "rangeFormatting": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "onTypeFormatting": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "rename": AnyCodable([
-                        "dynamicRegistration": AnyCodable(true)
-                    ]),
-                    "publishDiagnostics": AnyCodable([
-                        "relatedInformation": AnyCodable(true)
-                    ])
-                ])
-            ]),
-            "initializationOptions": AnyCodable(config.initializationOptions ?? [:])
+        // Build initialization params as plain dictionaries first, then wrap in AnyCodable
+        let clientInfo: [String: Any] = [
+            "name": "Ratu Kidul IDE",
+            "version": "1.0.0"
         ]
         
+        let capabilities: [String: Any] = [
+            "workspace": [
+                "applyEdit": true,
+                "workspaceEdit": [
+                    "documentChanges": true
+                ],
+                "didChangeConfiguration": [
+                    "dynamicRegistration": true
+                ],
+                "didChangeWatchedFiles": [
+                    "dynamicRegistration": true
+                ],
+                "symbol": [
+                    "dynamicRegistration": true
+                ],
+                "executeCommand": [
+                    "dynamicRegistration": true
+                ]
+            ],
+            "textDocument": [
+                "synchronization": [
+                    "dynamicRegistration": true,
+                    "willSave": true,
+                    "willSaveWaitUntil": true,
+                    "didSave": true
+                ],
+                "completion": [
+                    "dynamicRegistration": true,
+                    "completionItem": [
+                        "snippetSupport": true,
+                        "commitCharactersSupport": true,
+                        "documentationFormat": ["markdown", "plaintext"]
+                    ]
+                ],
+                "hover": [
+                    "dynamicRegistration": true,
+                    "contentFormat": ["markdown", "plaintext"]
+                ],
+                "signatureHelp": [
+                    "dynamicRegistration": true,
+                    "signatureInformation": [
+                        "documentationFormat": ["markdown", "plaintext"]
+                    ]
+                ],
+                "definition": [
+                    "dynamicRegistration": true
+                ],
+                "references": [
+                    "dynamicRegistration": true
+                ],
+                "documentHighlight": [
+                    "dynamicRegistration": true
+                ],
+                "documentSymbol": [
+                    "dynamicRegistration": true
+                ],
+                "codeAction": [
+                    "dynamicRegistration": true
+                ],
+                "codeLens": [
+                    "dynamicRegistration": true
+                ],
+                "formatting": [
+                    "dynamicRegistration": true
+                ],
+                "rangeFormatting": [
+                    "dynamicRegistration": true
+                ],
+                "onTypeFormatting": [
+                    "dynamicRegistration": true
+                ],
+                "rename": [
+                    "dynamicRegistration": true
+                ],
+                "publishDiagnostics": [
+                    "relatedInformation": true
+                ]
+            ]
+        ]
+        
+        var initializeParams: [String: Any] = [
+            "processId": ProcessInfo.processInfo.processIdentifier,
+            "clientInfo": clientInfo,
+            "locale": "en-US",
+            "capabilities": capabilities
+        ]
+        
+        // Add optional parameters
+        if let projectRoot = projectRoot {
+            initializeParams["rootPath"] = projectRoot
+        }
+        if let rootURI = rootURI {
+            initializeParams["rootUri"] = rootURI
+        }
+        
+        // Add initialization options if present
+        if let initOptions = config.initializationOptions {
+            // Convert [String: AnyCodable] to [String: Any]
+            let initOptionsDict = initOptions.mapValues { $0.value }
+            initializeParams["initializationOptions"] = initOptionsDict
+        }
+        
+        // Wrap the plain dictionary in AnyCodable for transport
         let response = try await transport.sendRequest(method: "initialize", params: AnyCodable(initializeParams))
         
         guard let result = response.result?.value as? [String: Any] else {

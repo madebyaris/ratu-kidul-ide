@@ -92,6 +92,10 @@ struct GeneralSettingsView: View {
     @AppStorage("chatFontSize") private var chatFontSize: Double = FontSettingsDefaults.chatFontSize
     @AppStorage("systemFontSize") private var systemFontSize: Double = FontSettingsDefaults.systemFontSize
     
+    // Editor layout settings
+    @AppStorage("showMinimap") private var showMinimap: Bool = false
+    @AppStorage("wrapText") private var wrapText: Bool = false
+    
     var body: some View {
         Form {
             Section {
@@ -225,6 +229,20 @@ struct GeneralSettingsView: View {
                 }
             } header: {
                 Text("Font Size")
+            }
+            
+            Section {
+                Toggle("Show Minimap", isOn: $showMinimap)
+                    .help("Display a minimap overview of the code on the right side")
+                
+                Toggle("Wrap Text", isOn: $wrapText)
+                    .help("Wrap long lines instead of scrolling horizontally")
+            } header: {
+                Text("Editor Layout")
+            } footer: {
+                Text("Configure how code is displayed in the editor")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
         }
         .formStyle(.grouped)
